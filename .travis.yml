@@ -4,16 +4,15 @@ rust:
 - beta
 - nightly
 env:
-- NIGHTLY=true
-- NIGHTLY=false
+- FEATURES=nightly
+- FEATURES=
 matrix:
   exclude:
   - rust: stable
-    env: NIGHTLY=true
+    env: FEATURES=nightly
   - rust: beta
-    env: NIGHTLY=true
-  - rust: nightly
-    env: NIGHTLY=false
+    env: FEATURES=nightly
 script:
-- cargo build --verbose
-- if $NIGHTLY; then cargo test --verbose; fi
+- cargo build --verbose --no-default-features --features="$FEATURES"
+- cargo test --verbose --tests --no-default-features --features="$FEATURES"
+- if [ "$FEATURES" = "nightly" ]; then RUSTFLAGS="--cfg docsrs" RUSTDOCFLAGS="--cfg docsrs" cargo test --verbose --doc; fi

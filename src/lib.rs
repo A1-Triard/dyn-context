@@ -1,4 +1,4 @@
-#![feature(never_type)]
+#![cfg_attr(feature="nightly", feature(never_type))]
 #![deny(warnings)]
 
 #![no_std]
@@ -21,6 +21,7 @@ pub trait Context {
     fn get_mut_raw(&mut self, ty: TypeId) -> Option<&mut dyn Any>;
 }
 
+#[cfg(feature="nightly")]
 impl Context for ! {
     fn get_raw(&self, _ty: TypeId) -> Option<&dyn Any> { Some(self) }
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { Some(self) }

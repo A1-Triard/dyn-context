@@ -11,14 +11,10 @@ categories = ["rust-patterns", "no-std"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/A1-Triard/dyn-context"
 
+[features]
+default = ["nightly"]
+nightly = []
+
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
-
-[dependencies]
-educe = "0.4.13"
-
-[dev-dependencies]
-macro-attr-2018 = "0.3.3"
-downcast-rs = "1.2.0"
-once_cell = "1.4.0"

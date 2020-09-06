@@ -1,0 +1,24 @@
+[package]
+edition = "2018"
+name = "dyn-context"
+version = "0.0.1"
+authors = ["warlock <internalmike@gmail.com>"]
+description = "Dependency object: effective reactive heterogeneous container."
+readme = "README.md"
+documentation = "https://docs.rs/dyn-context/"
+keywords = ["property", "reactive", "dependency", "runtime", "type"]
+categories = ["rust-patterns", "no-std"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/A1-Triard/dyn-context"
+
+[package.metadata.docs.rs]
+rustc-args = ["--cfg", "docsrs"]
+rustdoc-args = ["--cfg", "docsrs"]
+
+[dependencies]
+educe = "0.4.13"
+
+[dev-dependencies]
+macro-attr-2018 = "0.3.3"
+downcast-rs = "1.2.0"
+once_cell = "1.4.0"

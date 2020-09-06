@@ -1,5 +1,5 @@
-![travis](https://travis-ci.org/A1-Triard/dep-obj.svg?branch=master)
+![travis](https://travis-ci.org/A1-Triard/dyn-context.svg?branch=master)
 
-# dep-obj
+# dyn-context
 
-Dependency object: effective reactive heterogeneous container.
+Non-owning service provider pattern implementation.

@@ -402,7 +402,7 @@ pub mod example {
     context! {
         mod example_context {
             dyn data/data_mut: mut Data,
-            display: ref dyn Display,
+            display: ref (dyn Display + 'static),
             id: const usize,
         }
     }

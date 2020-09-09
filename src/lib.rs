@@ -15,7 +15,110 @@ pub use core::ops::FnOnce as std_ops_FnOnce;
 pub use core::any::Any as std_any_Any;
 #[doc(hidden)]
 pub use core::any::TypeId as std_any_TypeId;
+#[doc(hidden)]
+pub use paste::paste as paste_paste;
 
+/// A service provider pattern implementation.
+///
+/// Useful for building complex systems with callbacks without generic parameters.
+///
+/// # Examples
+///
+/// ```rust
+/// mod call_back {
+///     use dyn_context::Context;
+///
+///     pub struct CallBack {
+///         callback: Option<fn(context: &mut dyn Context)>
+///     }
+///
+///     impl CallBack {
+///         pub fn new() -> Self { CallBack { callback: None } }
+///
+///         pub fn set_callback(&mut self, callback: fn(context: &mut dyn Context)) {
+///             self.callback.replace(callback);
+///         }
+///
+///         pub fn call_back(&self, context: &mut dyn Context) {
+///             self.callback.map(|callback| callback(context));
+///         }
+///     }
+/// }
+///
+/// use std::convert::Into;
+/// use dyn_context::{TrivialContext, ContextExt};
+/// use call_back::CallBack;
+///
+/// struct PrintContext {
+///     value: String
+/// }
+///
+/// impl TrivialContext for PrintContext { }
+///
+/// # fn main() {
+/// let mut call_back = CallBack::new();
+/// call_back.set_callback(|context| {
+///     let print = context.get::<PrintContext>().expect("PrintContext required");
+///     println!("{}", &print.value);
+/// });
+/// call_back.call_back(&mut PrintContext { value: "Hello, world!".into() });
+/// # }
+///
+/// ```
+/// 
+/// For using `&str` instead of `String` the `context!` macro can be used:
+/// ```rust
+/// # mod call_back {
+/// #     use dyn_context::Context;
+/// # 
+/// #     pub struct CallBack {
+/// #         callback: Option<fn(context: &mut dyn Context)>
+/// #     }
+/// # 
+/// #     impl CallBack {
+/// #         pub fn new() -> Self { CallBack { callback: None } }
+/// # 
+/// #         pub fn set_callback(&mut self, callback: fn(context: &mut dyn Context)) {
+/// #             self.callback.replace(callback);
+/// #         }
+/// # 
+/// #         pub fn call_back(&self, context: &mut dyn Context) {
+/// #             self.callback.map(|callback| callback(context));
+/// #         }
+/// #     }
+/// # }
+/// # 
+/// use dyn_context::{context, ContextExt};
+/// use call_back::CallBack;
+///
+/// context! {
+///     mod print_value {
+///         value: ref str
+///     }
+/// }
+///
+/// use print_value::Context as PrintValue;
+///
+/// context! {
+///     mod print_context {
+///         dyn value: ref PrintValue
+///     }
+/// }
+///
+/// use print_context::Context as PrintContext;
+///
+/// # fn main() {
+/// let mut call_back = CallBack::new();
+/// call_back.set_callback(|context| {
+///     let print_value = context.get::<PrintValue>().expect("PrintValue required");
+///     println!("{}", print_value.value());
+/// });
+/// PrintValue::call("Hello, world!", |print_value| {
+///     PrintContext::call(print_value, |context| call_back.call_back(context));
+/// });
+/// # }
+///
+/// ```
 pub trait Context {
     fn get_raw(&self, ty: TypeId) -> Option<&dyn Any>;
     fn get_mut_raw(&mut self, ty: TypeId) -> Option<&mut dyn Any>;
@@ -71,7 +174,7 @@ macro_rules! context {
         $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>)?
         {
             $($(
-                $field_1:ident $($field_2:ident)? $(/ $field_mut:ident)? : $field_mod:ident $field_ty:ty
+                $field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty
             ),+ $(,)?)?
         }
     ) => {
@@ -82,7 +185,7 @@ macro_rules! context {
             context! {
                 @impl Context ty this
                 [ $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?] [ $(< $( $lt ),+ >)?]
-                {} {} {} {} {} {} { $($($field_1 $($field_2)? $(/ $field_mut)? : $field_mod $field_ty),+)? }
+                {} {} {} {} {} {} { $($($field_1 $($field_2)? : $field_mod $field_ty),+)? }
             }
         }
     };
@@ -174,7 +277,7 @@ macro_rules! context {
         {$({$($b:tt)*})*}
         {$($d:tt)*}
         {$($m:tt)*}
-        {$field:ident / $field_mut:ident : mut $ty:ty $(, $($other_fields:tt)+)?}
+        {$field:ident : mut $ty:ty $(, $($other_fields:tt)+)?}
     ) => {
         context! {
             @impl $name $tr $this
@@ -197,7 +300,7 @@ macro_rules! context {
                     #[allow(dead_code)]
                     pub fn $field (&self) -> &$ty { unsafe { &*self.$field } }
                     #[allow(dead_code)]
-                    pub fn $field_mut (&mut self) -> &mut $ty { unsafe { &mut *self.$field } }
+                    pub fn [< $field _mut >] (&mut self) -> &mut $ty { unsafe { &mut *self.$field } }
                 }
             }
             {$($d)*}
@@ -214,7 +317,7 @@ macro_rules! context {
         {$({$($b:tt)*})*}
         {$($d:tt)*}
         {$($m:tt)*}
-        {dyn $field:ident / $field_mut:ident : mut $ty:ty $(, $($other_fields:tt)+)?}
+        {dyn $field:ident : mut $ty:ty $(, $($other_fields:tt)+)?}
     ) => {
         context! {
             @impl $name $tr $this
@@ -237,7 +340,7 @@ macro_rules! context {
                     #[allow(dead_code)]
                     pub fn $field (&self) -> &$ty { unsafe { &*self.$field } }
                     #[allow(dead_code)]
-                    pub fn $field_mut (&mut self) -> &mut $ty { unsafe { &mut *self.$field } }
+                    pub fn [< $field _mut >] (&mut self) -> &mut $ty { unsafe { &mut *self.$field } }
                 }
             }
             {
@@ -249,7 +352,7 @@ macro_rules! context {
             {
                 $($m)*
                 if $tr == $crate::std_any_TypeId::of::<$ty>() {
-                    Some($this.$field_mut())
+                    Some($this.[< $field _mut >]())
                 } else
             }
             {$($($other_fields)+)?}
@@ -340,28 +443,30 @@ macro_rules! context {
         {$({$($f:tt)*})*} {$({$($p:tt)*})*} {$({$($a:tt)*})*} {$({$($b:tt)*})*}
         {$($d:tt)*} {$($m:tt)*} {}
     ) => {
-        pub struct $name $($g)* {
-            $($($f)*),*
-        }
-
-        impl $($g)* $name $($r)* {
-            pub fn call<ContextCallReturnType>(
-                $($($p)*),*,
-                f: impl $crate::std_ops_FnOnce(&mut Self) -> ContextCallReturnType 
-            ) -> ContextCallReturnType {
-                let mut context = Self {
-                    $($($a)*),*
-                };
-                f(&mut context)
+        $crate::paste_paste! {
+            pub struct $name $($g)* {
+                $($($f)*),*
             }
 
-            $($($b)*)*
+            impl $($g)* $name $($r)* {
+                pub fn call<ContextCallReturnType>(
+                    $($($p)*),*,
+                    f: impl $crate::std_ops_FnOnce(&mut Self) -> ContextCallReturnType 
+                ) -> ContextCallReturnType {
+                    let mut context = Self {
+                        $($($a)*),*
+                    };
+                    f(&mut context)
+                }
+
+                $($($b)*)*
+            }
+
+            unsafe impl $($g)* Send for $name $($r)* { }
+            unsafe impl $($g)* Sync for $name $($r)* { }
+
+            context! { @impl (dyn) $name $tr $this [$($g:tt)*] [$($r:tt)*] {$($d)*} {$($m)*} }
         }
-
-        unsafe impl $($g)* Send for $name $($r)* { }
-        unsafe impl $($g)* Sync for $name $($r)* { }
-
-        context! { @impl (dyn) $name $tr $this [$($g:tt)*] [$($r:tt)*] {$($d)*} {$($m)*} }
     };
     (
         @impl (dyn) $name:ident $tr:ident $this:ident
@@ -401,7 +506,7 @@ pub mod example {
 
     context! {
         mod example_context {
-            dyn data/data_mut: mut Data,
+            dyn data: mut Data,
             display: ref (dyn Display + 'static),
             id: const usize,
         }
@@ -419,7 +524,7 @@ mod test {
         mod context_1 {
             a: const u8,
             b: ref u16,
-            c/c_mut: mut u32,
+            c: mut u32,
         }
     }
 
@@ -442,7 +547,7 @@ mod test {
         mod context_2 {
             a: const u8,
             b: ref u16,
-            dyn c/c_mut: mut u32,
+            dyn c: mut u32,
         }
     }
 
@@ -466,7 +571,7 @@ mod test {
         mod context_3 {
             a: const u8,
             dyn b: ref u16,
-            dyn c/c_mut: mut u32,
+            dyn c: mut u32,
         }
     }
 

@@ -7,7 +7,7 @@ pub(crate) mod std {
     pub use core::*;
 }
 
-use core::any::{TypeId, Any};
+use core::any::{TypeId, Any, type_name};
 
 #[doc(hidden)]
 pub use core::ops::FnOnce as std_ops_FnOnce;
@@ -58,7 +58,7 @@ pub use paste::paste as paste_paste;
 /// # fn main() {
 /// let mut call_back = CallBack::new();
 /// call_back.set_callback(|context| {
-///     let print = context.get::<PrintContext>().expect("PrintContext required");
+///     let print: &PrintContext = context.get();
 ///     println!("{}", &print.value);
 /// });
 /// call_back.call_back(&mut PrintContext { value: "Hello, world!".into() });
@@ -110,7 +110,7 @@ pub use paste::paste as paste_paste;
 /// # fn main() {
 /// let mut call_back = CallBack::new();
 /// call_back.set_callback(|context| {
-///     let print_value = context.get::<PrintValue>().expect("PrintValue required");
+///     let print_value: &PrintValue = context.get();
 ///     println!("{}", print_value.value());
 /// });
 /// PrintValue::call("Hello, world!", |print_value| {
@@ -136,12 +136,16 @@ impl Context for () {
 }
 
 pub trait ContextExt: Context {
-    fn get<T: 'static>(&self) -> Option<&T> {
-        self.get_raw(TypeId::of::<T>()).map(|x| x.downcast_ref::<T>().expect("invalid cast"))
+    fn get<T: 'static>(&self) -> &T {
+        self.get_raw(TypeId::of::<T>())
+            .unwrap_or_else(|| panic!("{} required", type_name::<T>()))
+            .downcast_ref::<T>().expect("invalid cast")
     }
 
-    fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
-        self.get_mut_raw(TypeId::of::<T>()).map(|x| x.downcast_mut::<T>().expect("invalid cast"))
+    fn get_mut<T: 'static>(&mut self) -> &mut T {
+        self.get_mut_raw(TypeId::of::<T>())
+            .unwrap_or_else(|| panic!("{} required", type_name::<T>()))
+            .downcast_mut::<T>().expect("invalid cast")
     }
 }
 
@@ -560,7 +564,7 @@ mod test {
             assert_eq!(context.a(), 1u8);
             assert_eq!(context.b(), &2u16);
             assert_eq!(replace(context.c_mut(), 12), 3u32);
-            assert_eq!(context.get::<u32>(), Some(&12));
+            assert_eq!(context.get::<u32>(), &12);
             "res"
         });
         assert_eq!(res, "res");
@@ -584,8 +588,8 @@ mod test {
             assert_eq!(context.a(), 1u8);
             assert_eq!(context.b(), &2u16);
             assert_eq!(replace(context.c_mut(), 12), 3u32);
-            assert_eq!(context.get::<u32>(), Some(&12));
-            assert_eq!(context.get::<u16>(), Some(&2));
+            assert_eq!(context.get::<u32>(), &12);
+            assert_eq!(context.get::<u16>(), &2);
             "res"
         });
         assert_eq!(res, "res");

@@ -531,14 +531,12 @@ pub mod example {
     }
 
     context! {
-        mod example_context {
+        pub struct ExampleContext in mod example_context {
             dyn data: mut Data,
             display: ref (dyn Display + 'static),
             id: const usize,
         }
     }
-
-    pub use example_context::Context as ExampleContext;
 }
 
 #[cfg(test)]

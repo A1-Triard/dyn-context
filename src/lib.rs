@@ -92,20 +92,16 @@ pub use paste::paste as paste_paste;
 /// use call_back::CallBack;
 ///
 /// context! {
-///     mod print_value {
+///     struct PrintValue in mod print_value {
 ///         value: ref str
 ///     }
 /// }
 ///
-/// use print_value::Context as PrintValue;
-///
 /// context! {
-///     mod print_context {
+///     struct PrintContext in mod print_context {
 ///         dyn value: ref PrintValue
 ///     }
 /// }
-///
-/// use print_context::Context as PrintContext;
 ///
 /// # fn main() {
 /// let mut call_back = CallBack::new();
@@ -198,7 +194,7 @@ impl<T: TrivialContext> Context for T {
 #[macro_export]
 macro_rules! context {
     (
-        mod $name:ident
+        $vis:vis struct $name:ident in mod $mod_name:ident
         $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>)?
         {
             $($(
@@ -206,16 +202,18 @@ macro_rules! context {
             ),+ $(,)?)?
         }
     ) => {
-        mod $name {
+        mod $mod_name {
             #[allow(unused_imports)]
             use super::*;
 
             context! {
-                @impl Context ty this
+                @impl $name ty this
                 [ $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?] [ $(< $( $lt ),+ >)?]
                 {} {} {} {} {} {} { $($($field_1 $($field_2)? : $field_mod $field_ty),+)? }
             }
         }
+
+        $vis use self::$mod_name::$name;
     };
     (
         @impl $name:ident $tr:ident $this:ident
@@ -549,14 +547,12 @@ mod test {
     use core::mem::replace;
 
     context! {
-        mod context_1 {
+        struct Context1 in mod context_1 {
             a: const u8,
             b: ref u16,
             c: mut u32,
         }
     }
-
-    type Context1 = context_1::Context;
 
     #[test]
     fn test_context_1() {
@@ -572,14 +568,12 @@ mod test {
     }
 
     context! {
-        mod context_2 {
+        struct Context2 in mod context_2 {
             a: const u8,
             b: ref u16,
             dyn c: mut u32,
         }
     }
-
-    pub type Context2 = context_2::Context;
 
     #[test]
     fn test_context_2() {
@@ -596,14 +590,12 @@ mod test {
     }
 
     context! {
-        mod context_3 {
+        struct Context3 in mod context_3 {
             a: const u8,
             dyn b: ref u16,
             dyn c: mut u32,
         }
     }
-
-    pub type Context3 = context_3::Context;
 
     #[test]
     fn test_context_3() {

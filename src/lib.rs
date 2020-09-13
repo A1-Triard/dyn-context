@@ -151,6 +151,30 @@ pub trait ContextExt: Context {
 
 impl<T: Context + ?Sized> ContextExt for T { }
 
+/// A `TrivialContext` implementer automatically implements [`Context`](Context)
+/// as a context containing itself only.
+///
+/// # Examples
+///
+/// ```rust
+/// # use dyn_context::{TrivialContext, Context, ContextExt};
+/// #
+/// struct SomeData {
+///     data: u16,
+/// }
+///
+/// impl TrivialContext for SomeData { }
+///
+/// fn get_data_from_context(context: &dyn Context) -> u16 {
+///     let some_data: &SomeData = context.get();
+///     some_data.data
+/// }
+///
+/// # fn main() {
+/// let some_data = SomeData { data: 7 };
+/// let data_from_context = get_data_from_context(&some_data);
+/// assert_eq!(data_from_context, 7);
+/// # }
 pub trait TrivialContext: 'static { }
 
 impl<T: TrivialContext> Context for T {

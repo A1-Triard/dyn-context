@@ -92,13 +92,13 @@ pub use paste::paste as paste_paste;
 /// use call_back::CallBack;
 ///
 /// context! {
-///     struct PrintValue in mod print_value {
+///     struct PrintValue {
 ///         value: ref str
 ///     }
 /// }
 ///
 /// context! {
-///     struct PrintContext in mod print_context {
+///     struct PrintContext {
 ///         dyn value: ref PrintValue
 ///     }
 /// }
@@ -194,7 +194,7 @@ impl<T: TrivialContext> Context for T {
 #[macro_export]
 macro_rules! context {
     (
-        $vis:vis struct $name:ident in mod $mod_name:ident
+        $vis:vis struct $name:ident
         $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>)?
         {
             $($(
@@ -202,21 +202,14 @@ macro_rules! context {
             ),+ $(,)?)?
         }
     ) => {
-        mod $mod_name {
-            #[allow(unused_imports)]
-            use super::*;
-
-            context! {
-                @impl $name ty this
-                [ $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?] [ $(< $( $lt ),+ >)?]
-                {} {} {} {} {} {} { $($($field_1 $($field_2)? : $field_mod $field_ty),+)? }
-            }
+        context! {
+            @impl $name ($vis) ty this
+            [ $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?] [ $(< $( $lt ),+ >)?]
+            {} {} {} {} {} {} { $($($field_1 $($field_2)? : $field_mod $field_ty),+)? }
         }
-
-        $vis use self::$mod_name::$name;
     };
     (
-        @impl $name:ident $tr:ident $this:ident
+        @impl $name:ident ($vis:vis) $tr:ident $this:ident
         [$($g:tt)*] [$($r:tt)*]
         {$({$($f:tt)*})*}
         {$({$($p:tt)*})*}
@@ -227,7 +220,7 @@ macro_rules! context {
         {$field:ident : ref $ty:ty $(, $($other_fields:tt)+)?}
     ) => {
         context! {
-            @impl $name $tr $this
+            @impl $name ($vis) $tr $this
             [$($g)*] [$($r)*]
             {
                 $({$($f)*})*
@@ -244,7 +237,7 @@ macro_rules! context {
             {
                 $({$($b)*})*
                 {
-                    pub fn $field (&self) -> &$ty { unsafe { &*self.$field } }
+                    $vis fn $field (&self) -> &$ty { unsafe { &*self.$field } }
                 }
             }
             {$($d)*}
@@ -253,7 +246,7 @@ macro_rules! context {
         }
     };
     (
-        @impl $name:ident $tr:ident $this:ident
+        @impl $name:ident ($vis:vis) $tr:ident $this:ident
         [$($g:tt)*] [$($r:tt)*]
         {$({$($f:tt)*})*}
         {$({$($p:tt)*})*}
@@ -264,7 +257,7 @@ macro_rules! context {
         {dyn $field:ident : ref $ty:ty $(, $($other_fields:tt)+)?}
     ) => {
         context! {
-            @impl $name $tr $this
+            @impl $name ($vis) $tr $this
             [$($g)*] [$($r)*]
             {
                 $({$($f)*})*
@@ -281,7 +274,7 @@ macro_rules! context {
             {
                 $({$($b)*})*
                 {
-                    pub fn $field (&self) -> &$ty { unsafe { &*self.$field } }
+                    $vis fn $field (&self) -> &$ty { unsafe { &*self.$field } }
                 }
             }
             {
@@ -295,7 +288,7 @@ macro_rules! context {
         }
     };
     (
-        @impl $name:ident $tr:ident $this:ident
+        @impl $name:ident ($vis:vis) $tr:ident $this:ident
         [$($g:tt)*] [$($r:tt)*]
         {$({$($f:tt)*})*}
         {$({$($p:tt)*})*}
@@ -306,7 +299,7 @@ macro_rules! context {
         {$field:ident : mut $ty:ty $(, $($other_fields:tt)+)?}
     ) => {
         context! {
-            @impl $name $tr $this
+            @impl $name ($vis) $tr $this
             [$($g)*] [$($r)*]
             {
                 $({$($f)*})*
@@ -324,9 +317,9 @@ macro_rules! context {
                 $({$($b)*})*
                 {
                     #[allow(dead_code)]
-                    pub fn $field (&self) -> &$ty { unsafe { &*self.$field } }
+                    $vis fn $field (&self) -> &$ty { unsafe { &*self.$field } }
                     #[allow(dead_code)]
-                    pub fn [< $field _mut >] (&mut self) -> &mut $ty { unsafe { &mut *self.$field } }
+                    $vis fn [< $field _mut >] (&mut self) -> &mut $ty { unsafe { &mut *self.$field } }
                 }
             }
             {$($d)*}
@@ -335,7 +328,7 @@ macro_rules! context {
         }
     };
     (
-        @impl $name:ident $tr:ident $this:ident
+        @impl $name:ident ($vis:vis) $tr:ident $this:ident
         [$($g:tt)*] [$($r:tt)*]
         {$({$($f:tt)*})*}
         {$({$($p:tt)*})*}
@@ -346,7 +339,7 @@ macro_rules! context {
         {dyn $field:ident : mut $ty:ty $(, $($other_fields:tt)+)?}
     ) => {
         context! {
-            @impl $name $tr $this
+            @impl $name ($vis) $tr $this
             [$($g)*] [$($r)*]
             {
                 $({$($f)*})*
@@ -364,9 +357,9 @@ macro_rules! context {
                 $({$($b)*})*
                 {
                     #[allow(dead_code)]
-                    pub fn $field (&self) -> &$ty { unsafe { &*self.$field } }
+                    $vis fn $field (&self) -> &$ty { unsafe { &*self.$field } }
                     #[allow(dead_code)]
-                    pub fn [< $field _mut >] (&mut self) -> &mut $ty { unsafe { &mut *self.$field } }
+                    $vis fn [< $field _mut >] (&mut self) -> &mut $ty { unsafe { &mut *self.$field } }
                 }
             }
             {
@@ -385,7 +378,7 @@ macro_rules! context {
         }
     };
     (
-        @impl $name:ident $tr:ident $this:ident
+        @impl $name:ident ($vis:vis) $tr:ident $this:ident
         [$($g:tt)*] [$($r:tt)*]
         {$({$($f:tt)*})*}
         {$({$($p:tt)*})*}
@@ -396,7 +389,7 @@ macro_rules! context {
         {$field:ident : const $ty:ty $(, $($other_fields:tt)+)?}
     ) => {
         context! {
-            @impl $name $tr $this
+            @impl $name ($vis) $tr $this
             [$($g)*] [$($r)*]
             {
                 $({$($f)*})*
@@ -413,7 +406,7 @@ macro_rules! context {
             {
                 $({$($b)*})*
                 {
-                    pub fn $field (&self) -> $ty { self.$field }
+                    $vis fn $field (&self) -> $ty { self.$field }
                 }
             }
             {$($d)*}
@@ -422,7 +415,7 @@ macro_rules! context {
         }
     };
     (
-        @impl $name:ident $tr:ident $this:ident
+        @impl $name:ident ($vis:vis) $tr:ident $this:ident
         [$($g:tt)*] [$($r:tt)*]
         {$({$($f:tt)*})*}
         {$({$($p:tt)*})*}
@@ -433,7 +426,7 @@ macro_rules! context {
         {dyn $field:ident : const $ty:ty $(, $($other_fields:tt)+)?}
     ) => {
         context! {
-            @impl $name $tr $this
+            @impl $name ($vis) $tr $this
             [$($g)*] [$($r)*]
             {
                 $({$($f)*})*
@@ -450,7 +443,7 @@ macro_rules! context {
             {
                 $({$($b)*})*
                 {
-                    pub fn $field (&self) -> $ty { self.$field }
+                    $vis fn $field (&self) -> $ty { self.$field }
                 }
             }
             {
@@ -464,18 +457,18 @@ macro_rules! context {
         }
     };
     (
-        @impl $name:ident $tr:ident $this:ident
+        @impl $name:ident ($vis:vis) $tr:ident $this:ident
         [$($g:tt)*] [$($r:tt)*]
         {$({$($f:tt)*})*} {$({$($p:tt)*})*} {$({$($a:tt)*})*} {$({$($b:tt)*})*}
         {$($d:tt)*} {$($m:tt)*} {}
     ) => {
         $crate::paste_paste! {
-            pub struct $name $($g)* {
+            $vis struct $name $($g)* {
                 $($($f)*),*
             }
 
             impl $($g)* $name $($r)* {
-                pub fn call<ContextCallReturnType>(
+                $vis fn call<ContextCallReturnType>(
                     $($($p)*),*,
                     f: impl $crate::std_ops_FnOnce(&mut Self) -> ContextCallReturnType 
                 ) -> ContextCallReturnType {
@@ -531,7 +524,7 @@ pub mod example {
     }
 
     context! {
-        pub struct ExampleContext in mod example_context {
+        pub struct ExampleContext {
             dyn data: mut Data,
             display: ref (dyn Display + 'static),
             id: const usize,
@@ -545,7 +538,7 @@ mod test {
     use core::mem::replace;
 
     context! {
-        struct Context1 in mod context_1 {
+        struct Context1 {
             a: const u8,
             b: ref u16,
             c: mut u32,
@@ -566,7 +559,7 @@ mod test {
     }
 
     context! {
-        struct Context2 in mod context_2 {
+        struct Context2 {
             a: const u8,
             b: ref u16,
             dyn c: mut u32,
@@ -587,9 +580,12 @@ mod test {
         assert_eq!(x, 12);
     }
 
+    #[derive(Debug, Clone, Copy)]
+    struct PrivStr;
+
     context! {
-        struct Context3 in mod context_3 {
-            a: const u8,
+        struct Context3 {
+            a: const PrivStr,
             dyn b: ref u16,
             dyn c: mut u32,
         }
@@ -598,8 +594,8 @@ mod test {
     #[test]
     fn test_context_3() {
         let mut x = 3;
-        let res = Context3::call(1, &2, &mut x, |context| {
-            assert_eq!(context.a(), 1u8);
+        let res = Context3::call(PrivStr, &2, &mut x, |context| {
+            let _ = context.a();
             assert_eq!(context.b(), &2u16);
             assert_eq!(replace(context.c_mut(), 12), 3u32);
             assert_eq!(context.get::<u32>(), &12);

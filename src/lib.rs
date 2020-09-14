@@ -202,313 +202,363 @@ macro_rules! context {
             ),+ $(,)?)?
         }
     ) => {
-        context! {
-            @impl $name ($vis) ty this
-            [ $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)?] [ $(< $( $lt ),+ >)?]
-            {} {} {} {} {} {} { $($($field_1 $($field_2)? : $field_mod $field_ty),+)? }
+        $crate::context! {
+            @impl
+            [$name] [$vis] [ty] [this]
+            [ $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? ]
+            [ $(< $( $lt ),+ >)? ]
+            [] [] [] [] [] []
+            [ $($($field_1 $($field_2)? : $field_mod $field_ty),+)? ]
         }
     };
     (
-        @impl $name:ident ($vis:vis) $tr:ident $this:ident
-        [$($g:tt)*] [$($r:tt)*]
-        {$({$($f:tt)*})*}
-        {$({$($p:tt)*})*}
-        {$({$($a:tt)*})*}
-        {$({$($b:tt)*})*}
-        {$($d:tt)*}
-        {$($m:tt)*}
-        {$field:ident : ref $ty:ty $(, $($other_fields:tt)+)?}
+        @impl
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_args:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [$($trait_impl_ref:tt)*]
+        [$($trait_impl_mut:tt)*]
+        [$field:ident : ref $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
-        context! {
-            @impl $name ($vis) $tr $this
-            [$($g)*] [$($r)*]
-            {
-                $({$($f)*})*
-                {$field : *const $ty}
-            }
-            {
-                $({$($p)*})*
-                {$field : &$ty}
-            }
-            {
-                $({$($a)*})*
-                {$field : $field as *const $ty}
-            }
-            {
-                $({$($b)*})*
-                {
-                    $vis fn $field (&self) -> &$ty { unsafe { &*self.$field } }
-                }
-            }
-            {$($d)*}
-            {$($m)*}
-            {$($($other_fields)+)?}
+        $crate::context! {
+            @impl [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            [
+                $($struct_fields)*
+                $field : *const $field_ty,
+            ]
+            [
+                $($ctor_args)*
+                $field : &$field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field : $field as *const $field_ty,
+            ]
+            [
+                $($struct_methods)*
+                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
+            ]
+            [
+                $($trait_impl_ref)*
+            ]
+            [
+                $($trait_impl_mut)*
+            ]
+            [$($($other_fields)+)?]
         }
     };
     (
-        @impl $name:ident ($vis:vis) $tr:ident $this:ident
-        [$($g:tt)*] [$($r:tt)*]
-        {$({$($f:tt)*})*}
-        {$({$($p:tt)*})*}
-        {$({$($a:tt)*})*}
-        {$({$($b:tt)*})*}
-        {$($d:tt)*}
-        {$($m:tt)*}
-        {dyn $field:ident : ref $ty:ty $(, $($other_fields:tt)+)?}
+        @impl
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_args:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [$($trait_impl_ref:tt)*]
+        [$($trait_impl_mut:tt)*]
+        [dyn $field:ident : ref $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
-        context! {
-            @impl $name ($vis) $tr $this
-            [$($g)*] [$($r)*]
-            {
-                $({$($f)*})*
-                {$field : *const $ty}
-            }
-            {
-                $({$($p)*})*
-                {$field : &$ty}
-            }
-            {
-                $({$($a)*})*
-                {$field : $field as *const $ty}
-            }
-            {
-                $({$($b)*})*
-                {
-                    $vis fn $field (&self) -> &$ty { unsafe { &*self.$field } }
-                }
-            }
-            {
-                $($d)*
-                if $tr == $crate::std_any_TypeId::of::<$ty>() {
+        $crate::context! {
+            @impl [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            [
+                $($struct_fields)*
+                $field : *const $field_ty,
+            ]
+            [
+                $($ctor_args)*
+                $field : &$field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field : $field as *const $field_ty,
+            ]
+            [
+                $($struct_methods)*
+                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
+            ]
+            [
+                $($trait_impl_ref)*
+                if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
                     Some($this.$field())
                 } else
-            }
-            {$($m)*}
-            {$($($other_fields)+)?}
+            ]
+            [
+                $($trait_impl_mut)*
+            ]
+            [$($($other_fields)+)?]
         }
     };
     (
-        @impl $name:ident ($vis:vis) $tr:ident $this:ident
-        [$($g:tt)*] [$($r:tt)*]
-        {$({$($f:tt)*})*}
-        {$({$($p:tt)*})*}
-        {$({$($a:tt)*})*}
-        {$({$($b:tt)*})*}
-        {$($d:tt)*}
-        {$($m:tt)*}
-        {$field:ident : mut $ty:ty $(, $($other_fields:tt)+)?}
+        @impl
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_args:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [$($trait_impl_ref:tt)*]
+        [$($trait_impl_mut:tt)*]
+        [$field:ident : mut $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
-        context! {
-            @impl $name ($vis) $tr $this
-            [$($g)*] [$($r)*]
-            {
-                $({$($f)*})*
-                {$field : *mut $ty}
-            }
-            {
-                $({$($p)*})*
-                {$field : &mut $ty}
-            }
-            {
-                $({$($a)*})*
-                {$field : $field as *mut $ty}
-            }
-            {
-                $({$($b)*})*
-                {
-                    #[allow(dead_code)]
-                    $vis fn $field (&self) -> &$ty { unsafe { &*self.$field } }
-                    #[allow(dead_code)]
-                    $vis fn [< $field _mut >] (&mut self) -> &mut $ty { unsafe { &mut *self.$field } }
-                }
-            }
-            {$($d)*}
-            {$($m)*}
-            {$($($other_fields)+)?}
+        $crate::context! {
+            @impl [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            [
+                $($struct_fields)*
+                $field : *mut $field_ty,
+            ]
+            [
+                $($ctor_args)*
+                $field : &mut $field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field : $field as *mut $field_ty,
+            ]
+            [
+                $($struct_methods)*
+
+                #[allow(dead_code)]
+                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
+
+                #[allow(dead_code)]
+                $vis fn [< $field _mut >] (&mut self) -> &mut $field_ty { unsafe { &mut *self.$field } }
+            ]
+            [
+                $($trait_impl_ref)*
+            ]
+            [
+                $($trait_impl_mut)*
+            ]
+            [$($($other_fields)+)?]
         }
     };
     (
-        @impl $name:ident ($vis:vis) $tr:ident $this:ident
-        [$($g:tt)*] [$($r:tt)*]
-        {$({$($f:tt)*})*}
-        {$({$($p:tt)*})*}
-        {$({$($a:tt)*})*}
-        {$({$($b:tt)*})*}
-        {$($d:tt)*}
-        {$($m:tt)*}
-        {dyn $field:ident : mut $ty:ty $(, $($other_fields:tt)+)?}
+        @impl
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_args:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [$($trait_impl_ref:tt)*]
+        [$($trait_impl_mut:tt)*]
+        [dyn $field:ident : mut $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
-        context! {
-            @impl $name ($vis) $tr $this
-            [$($g)*] [$($r)*]
-            {
-                $({$($f)*})*
-                {$field : *mut $ty}
-            }
-            {
-                $({$($p)*})*
-                {$field : &mut $ty}
-            }
-            {
-                $({$($a)*})*
-                {$field : $field as *mut $ty}
-            }
-            {
-                $({$($b)*})*
-                {
-                    #[allow(dead_code)]
-                    $vis fn $field (&self) -> &$ty { unsafe { &*self.$field } }
-                    #[allow(dead_code)]
-                    $vis fn [< $field _mut >] (&mut self) -> &mut $ty { unsafe { &mut *self.$field } }
-                }
-            }
-            {
-                $($d)*
-                if $tr == $crate::std_any_TypeId::of::<$ty>() {
+        $crate::context! {
+            @impl [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            [
+                $($struct_fields)*
+                $field : *mut $field_ty,
+            ]
+            [
+                $($ctor_args)*
+                $field : &mut $field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field : $field as *mut $field_ty,
+            ]
+            [
+                $($struct_methods)*
+
+                #[allow(dead_code)]
+                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
+
+                #[allow(dead_code)]
+                $vis fn [< $field _mut >] (&mut self) -> &mut $field_ty { unsafe { &mut *self.$field } }
+            ]
+            [
+                $($trait_impl_ref)*
+                if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
                     Some($this.$field())
                 } else
-            }
-            {
-                $($m)*
-                if $tr == $crate::std_any_TypeId::of::<$ty>() {
-                    Some($this.[< $field _mut >]())
+            ]
+            [
+                $($trait_impl_mut)*
+                if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
+                    Some($this. [< $field _mut >] ())
                 } else
-            }
-            {$($($other_fields)+)?}
+            ]
+            [$($($other_fields)+)?]
         }
     };
     (
-        @impl $name:ident ($vis:vis) $tr:ident $this:ident
-        [$($g:tt)*] [$($r:tt)*]
-        {$({$($f:tt)*})*}
-        {$({$($p:tt)*})*}
-        {$({$($a:tt)*})*}
-        {$({$($b:tt)*})*}
-        {$($d:tt)*}
-        {$($m:tt)*}
-        {$field:ident : const $ty:ty $(, $($other_fields:tt)+)?}
+        @impl
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_args:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [$($trait_impl_ref:tt)*]
+        [$($trait_impl_mut:tt)*]
+        [$field:ident : const $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
-        context! {
-            @impl $name ($vis) $tr $this
-            [$($g)*] [$($r)*]
-            {
-                $({$($f)*})*
-                {$field : $ty}
-            }
-            {
-                $({$($p)*})*
-                {$field : $ty}
-            }
-            {
-                $({$($a)*})*
-                {$field}
-            }
-            {
-                $({$($b)*})*
-                {
-                    $vis fn $field (&self) -> $ty { self.$field }
-                }
-            }
-            {$($d)*}
-            {$($m)*}
-            {$($($other_fields)+)?}
+        $crate::context! {
+            @impl [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            [
+                $($struct_fields)*
+                $field : $field_ty,
+            ]
+            [
+                $($ctor_args)*
+                $field : $field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field,
+            ]
+            [
+                $($struct_methods)*
+                $vis fn $field (&self) -> $field_ty { self.$field }
+            ]
+            [
+                $($trait_impl_ref)*
+            ]
+            [
+                $($trait_impl_mut)*
+            ]
+            [$($($other_fields)+)?]
         }
     };
     (
-        @impl $name:ident ($vis:vis) $tr:ident $this:ident
-        [$($g:tt)*] [$($r:tt)*]
-        {$({$($f:tt)*})*}
-        {$({$($p:tt)*})*}
-        {$({$($a:tt)*})*}
-        {$({$($b:tt)*})*}
-        {$($d:tt)*}
-        {$($m:tt)*}
-        {dyn $field:ident : const $ty:ty $(, $($other_fields:tt)+)?}
+        @impl
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_args:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [$($trait_impl_ref:tt)*]
+        [$($trait_impl_mut:tt)*]
+        [$field:ident : const $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
-        context! {
-            @impl $name ($vis) $tr $this
-            [$($g)*] [$($r)*]
-            {
-                $({$($f)*})*
-                {$field : $ty}
-            }
-            {
-                $({$($p)*})*
-                {$field : $ty}
-            }
-            {
-                $({$($a)*})*
-                {$field}
-            }
-            {
-                $({$($b)*})*
-                {
-                    $vis fn $field (&self) -> $ty { self.$field }
-                }
-            }
-            {
-                $($d)*
-                if $tr == $crate::std_any_TypeId::of::<$ty>() {
+        $crate::context! {
+            @impl [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            [
+                $($struct_fields)*
+                $field : $field_ty,
+            ]
+            [
+                $($ctor_args)*
+                $field : $field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field,
+            ]
+            [
+                $($struct_methods)*
+                $vis fn $field (&self) -> $field_ty { self.$field }
+            ]
+            [
+                $($trait_impl_ref)*
+                if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
                     Some(&$this.$field)
                 } else
-            }
-            {$($m)*}
-            {$($($other_fields)+)?}
+            ]
+            [
+                $($trait_impl_mut)*
+            ]
+            [$($($other_fields)+)?]
         }
     };
     (
-        @impl $name:ident ($vis:vis) $tr:ident $this:ident
-        [$($g:tt)*] [$($r:tt)*]
-        {$({$($f:tt)*})*} {$({$($p:tt)*})*} {$({$($a:tt)*})*} {$({$($b:tt)*})*}
-        {$($d:tt)*} {$($m:tt)*} {}
+        @impl
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_args:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [$($trait_impl_ref:tt)*]
+        [$($trait_impl_mut:tt)*]
+        [$field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty $(, $($other_fields:tt)+)?]
+    ) => {
+        compile_error!(concat!(
+            "invalid context field: ",
+            stringify!($field_1 $($field_2)? : $field_mod:ident $field_ty:ty)
+        ));
+    };
+    (
+        @impl
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_args:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [$($trait_impl_ref:tt)*]
+        [$($trait_impl_mut:tt)*]
+        []
+    ) => {
+        $crate::context! {
+            @impl struct
+            [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            [$($struct_fields)*]
+            [$($ctor_args)*]
+            [$($ctor_assignments)*]
+            [$($struct_methods)*]
+        }
+        $crate::context! {
+            @impl trait
+            [$name] [$ty] [$this] [$($g)*] [$($r)*]
+            [$($trait_impl_ref)*]
+            [$($trait_impl_mut)*]
+        }
+    };
+    (
+        @impl struct
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_args:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
     ) => {
         $crate::paste_paste! {
             $vis struct $name $($g)* {
-                $($($f)*),*
+                $($struct_fields)*
             }
 
             impl $($g)* $name $($r)* {
                 $vis fn call<ContextCallReturnType>(
-                    $($($p)*),*,
+                    $($ctor_args)*
                     f: impl $crate::std_ops_FnOnce(&mut Self) -> ContextCallReturnType 
                 ) -> ContextCallReturnType {
                     let mut context = Self {
-                        $($($a)*),*
+                        $($ctor_assignments)*
                     };
                     f(&mut context)
                 }
 
-                $($($b)*)*
+                $($struct_methods)*
             }
 
             unsafe impl $($g)* Send for $name $($r)* { }
             unsafe impl $($g)* Sync for $name $($r)* { }
-
-            context! { @impl (dyn) $name $tr $this [$($g:tt)*] [$($r:tt)*] {$($d)*} {$($m)*} }
         }
     };
     (
-        @impl (dyn) $name:ident $tr:ident $this:ident
-        [$($g:tt)*] [$($r:tt)*]
-        {} {}
+        @impl trait
+        [$name:ident] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [] []
     ) => {
     };
     (
-        @impl (dyn) $name:ident $tr:ident $this:ident
-        [$($g:tt)*] [$($r:tt)*]
-        {$($d:tt)*} {$($m:tt)*}
+        @impl trait
+        [$name:ident] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$($trait_impl_ref:tt)*]
+        [$($trait_impl_mut:tt)*]
     ) => {
-        impl $($g)* $crate::Context for $name $($r)* {
-            fn get_raw(&self, $tr: $crate::std_any_TypeId) -> Option<&dyn $crate::std_any_Any> {
-                let $this = self;
-                $($d)*
-                { None }
-            }
+        $crate::paste_paste! {
+            impl $($g)* $crate::Context for $name $($r)* {
+                fn get_raw(&self, $ty: $crate::std_any_TypeId) -> Option<&dyn $crate::std_any_Any> {
+                    let $this = self;
+                    $($trait_impl_ref)*
+                    { None }
+                }
 
-            fn get_mut_raw(&mut self, $tr: $crate::std_any_TypeId) -> Option<&mut dyn $crate::std_any_Any> {
-                let $this = self;
-                $($m)*
-                { None }
+                fn get_mut_raw(&mut self, $ty: $crate::std_any_TypeId) -> Option<&mut dyn $crate::std_any_Any> {
+                    let $this = self;
+                    $($trait_impl_mut)*
+                    { None }
+                }
             }
         }
     };

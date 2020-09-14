@@ -473,8 +473,9 @@ macro_rules! context {
         [$field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         compile_error!(concat!(
-            "invalid context field: ",
-            stringify!($field_1 $($field_2)? : $field_mod:ident $field_ty:ty)
+            "invalid context field '",
+            stringify!($field_1 $($field_2)? : $field_mod $field_ty),
+            "', allowed form is '[dyn] $name: (const | ref | mut) $type'",
         ));
     };
     (

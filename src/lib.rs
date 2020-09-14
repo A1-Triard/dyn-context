@@ -115,7 +115,7 @@ pub use paste::paste as paste_paste;
 /// # }
 ///
 /// ```
-pub trait Context {
+pub trait Context: 'static {
     fn get_raw(&self, ty: TypeId) -> Option<&dyn Any>;
     fn get_mut_raw(&mut self, ty: TypeId) -> Option<&mut dyn Any>;
 }

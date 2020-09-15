@@ -2,7 +2,6 @@
 #![deny(warnings)]
 
 #![no_std]
-extern crate alloc;
 
 use core::any::{TypeId, Any, type_name};
 
@@ -21,7 +20,7 @@ pub use core::concat as std_concat;
 #[doc(hidden)]
 pub use core::compile_error as std_compile_error;
 
-/// A service provider pattern implementation.
+/// A service provider pattern implementation = associated read-only container with type as key.
 ///
 /// Useful for building complex systems with callbacks without generic parameters.
 ///
@@ -118,7 +117,14 @@ pub use core::compile_error as std_compile_error;
 /// # }
 /// ```
 pub trait Context: 'static {
+    /// Borrows shareable data entry.
+    ///
+    /// Prefer high-level [`get`](ContextExt::get) wrap.
     fn get_raw(&self, ty: TypeId) -> Option<&dyn Any>;
+
+    /// Borrows mutable data entry.
+    ///
+    /// Prefer high-level [`get_mut`](ContextExt::get_mut) wrap.
     fn get_mut_raw(&mut self, ty: TypeId) -> Option<&mut dyn Any>;
 }
 
@@ -135,18 +141,18 @@ impl Context for () {
 
 /// Extends [`Context`](Context) with methods that make it easier to access the content of the context.
 pub trait ContextExt: Context {
-    /// Extracts mutable data reference.
+    /// Borrows shareable data reference.
     ///
-    /// Panics if context does not provide requested type.
+    /// Panics if the context does not provide requested type.
     fn get<T: 'static>(&self) -> &T {
         self.get_raw(TypeId::of::<T>())
             .unwrap_or_else(|| panic!("{} required", type_name::<T>()))
             .downcast_ref::<T>().expect("invalid cast")
     }
 
-    /// Extracts shareable data reference.
+    /// Borrows mutable data reference.
     ///
-    /// Panics if context does not provide requested type.
+    /// Panics if the context does not provide requested type.
     fn get_mut<T: 'static>(&mut self) -> &mut T {
         self.get_mut_raw(TypeId::of::<T>())
             .unwrap_or_else(|| panic!("{} required", type_name::<T>()))

@@ -14,6 +14,12 @@ pub use core::any::Any as std_any_Any;
 pub use core::any::TypeId as std_any_TypeId;
 #[doc(hidden)]
 pub use paste::paste as paste_paste;
+#[doc(hidden)]
+pub use core::stringify as std_stringify;
+#[doc(hidden)]
+pub use core::concat as std_concat;
+#[doc(hidden)]
+pub use core::compile_error as std_compile_error;
 
 /// A service provider pattern implementation.
 ///
@@ -475,9 +481,9 @@ macro_rules! context {
         [$($trait_impl_mut:tt)*]
         [$field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
-        compile_error!(concat!(
+        $crate::std_compile_error!($crate::std_concat!(
             "invalid context field '",
-            stringify!($field_1 $($field_2)? : $field_mod $field_ty),
+            $crate::std_stringify!($field_1 $($field_2)? : $field_mod $field_ty),
             "', allowed form is '[dyn] $name: (const | ref | mut) $type'",
         ));
     };

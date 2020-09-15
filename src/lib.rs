@@ -3,9 +3,6 @@
 
 #![no_std]
 extern crate alloc;
-pub(crate) mod std {
-    pub use core::*;
-}
 
 use core::any::{TypeId, Any, type_name};
 
@@ -113,7 +110,6 @@ pub use paste::paste as paste_paste;
 ///     PrintContext::call(print_value, |context| call_back.call_back(context));
 /// });
 /// # }
-///
 /// ```
 pub trait Context: 'static {
     fn get_raw(&self, ty: TypeId) -> Option<&dyn Any>;
@@ -131,13 +127,20 @@ impl Context for () {
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { None }
 }
 
+/// Extends [`Context`](Context) with methods that make it easier to access the content of the context.
 pub trait ContextExt: Context {
+    /// Extracts mutable data reference.
+    ///
+    /// Panics if context does not provide requested type.
     fn get<T: 'static>(&self) -> &T {
         self.get_raw(TypeId::of::<T>())
             .unwrap_or_else(|| panic!("{} required", type_name::<T>()))
             .downcast_ref::<T>().expect("invalid cast")
     }
 
+    /// Extracts shareable data reference.
+    ///
+    /// Panics if context does not provide requested type.
     fn get_mut<T: 'static>(&mut self) -> &mut T {
         self.get_mut_raw(TypeId::of::<T>())
             .unwrap_or_else(|| panic!("{} required", type_name::<T>()))

@@ -259,14 +259,13 @@ macro_rules! context {
         [$($ctor_args:tt)*]
         [$($ctor_assignments:tt)*]
         [$($struct_methods:tt)*]
-        [$($trait_impl_ref:tt)*]
-        [$($trait_impl_mut:tt)*]
         [dyn $($field_2:ident)? : $field_mod:ident $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::std_compile_error!($crate::std_concat!(
-            "dynamic fields in non-dynamic context are not allowed, "
+            "dynamic fields in non-dynamic context are not allowed, ",
             "consider changing 'struct' to 'dyn struct' or remove 'dyn' from field definition: '",
             $crate::std_stringify!(dyn $($field_2)? : $field_mod $field_ty),
+            "'"
         ));
     };
     (
@@ -673,17 +672,21 @@ macro_rules! context {
 
 #[cfg(docsrs)]
 pub mod example {
-    use core::fmt::Display;
-
     pub struct Data {
         pub x: i16,
         pub y: i16
     }
 
     context! {
-        pub struct ExampleContext {
-            dyn data: mut Data,
-            display: ref (dyn Display + 'static),
+        pub struct StrData {
+            r: ref str,
+        }
+    }
+
+    context! {
+        pub dyn struct ExampleContext {
+            data: ref Data,
+            str_data: mut StrData,
             id: const usize,
         }
     }

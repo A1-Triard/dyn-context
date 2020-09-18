@@ -19,6 +19,8 @@ pub use core::stringify as std_stringify;
 pub use core::concat as std_concat;
 #[doc(hidden)]
 pub use core::compile_error as std_compile_error;
+#[doc(hidden)]
+pub use generics::parse as generics_parse;
 
 /// A service provider pattern implementation = associated read-only container with type as key.
 ///
@@ -209,8 +211,27 @@ impl<T: TrivialContext> Context for T {
 #[macro_export]
 macro_rules! context {
     (
-        $vis:vis struct $name:ident
-        $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>)?
+        $vis:vis struct $name:ident $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::context {
+                @struct [$vis] [$name]
+            }
+            $($body)*
+        }
+    };
+    (
+        $vis:vis dyn struct $name:ident $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::context {
+                @dyn struct [$vis] [$name]
+            }
+            $($body)*
+        }
+    };
+    (
+        @struct [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         {
             $($(
                 $field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty
@@ -220,15 +241,13 @@ macro_rules! context {
         $crate::context! {
             @impl struct [static]
             [$name] [$vis] [ty] [this]
-            [ $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? ]
-            [ $(< $( $lt ),+ >)? ]
+            [$($g)*] [$($r)*] [$($w)*]
             [] [] [] []
             [ $($($field_1 $($field_2)? : $field_mod $field_ty),+)? ]
         }
     };
     (
-        $vis:vis dyn struct $name:ident
-        $(< $( $lt:tt $( : $clt:tt $(+ $dlt:tt )* )? ),+ $(,)?>)?
+        @dyn struct [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         {
             $($(
                 $field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty
@@ -238,23 +257,22 @@ macro_rules! context {
         $crate::context! {
             @impl struct [dyn]
             [$name] [$vis] [ty] [this]
-            [ $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? ]
-            [ $(< $( $lt ),+ >)? ]
+            [$($g)*] [$($r)*] [$($w)*]
             [] [] [] []
             [ $($($field_1 $($field_2)? : $field_mod $field_ty),+)? ]
         }
         $crate::context! {
             @impl trait
             [$name] [$vis] [ty] [this]
-            [ $(< $( $lt $( : $clt $(+ $dlt )* )? ),+ >)? ]
-            [ $(< $( $lt ),+ >)? ]
+            [$($g)*] [$($r)*] [$($w)*]
             [] []
             [ $($($field_1 $($field_2)? : $field_mod $field_ty),+)? ]
         }
     };
     (
         @impl struct [static]
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($struct_fields:tt)*]
         [$($ctor_args:tt)*]
         [$($ctor_assignments:tt)*]
@@ -270,7 +288,8 @@ macro_rules! context {
     };
     (
         @impl struct [$channel:ident]
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($struct_fields:tt)*]
         [$($ctor_args:tt)*]
         [$($ctor_assignments:tt)*]
@@ -278,7 +297,7 @@ macro_rules! context {
         [$field:ident : ref $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl struct [$channel] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl struct [$channel] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
                 $field : *const $field_ty,
@@ -300,7 +319,8 @@ macro_rules! context {
     };
     (
         @impl struct [dyn]
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($struct_fields:tt)*]
         [$($ctor_args:tt)*]
         [$($ctor_assignments:tt)*]
@@ -308,7 +328,7 @@ macro_rules! context {
         [dyn $field:ident : ref $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl struct [dyn] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl struct [dyn] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
                 $field : *const $field_ty,
@@ -330,7 +350,8 @@ macro_rules! context {
     };
     (
         @impl struct [$channel:ident]
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($struct_fields:tt)*]
         [$($ctor_args:tt)*]
         [$($ctor_assignments:tt)*]
@@ -338,7 +359,7 @@ macro_rules! context {
         [$field:ident : mut $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl struct [$channel] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl struct [$channel] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
                 $field : *mut $field_ty,
@@ -365,7 +386,8 @@ macro_rules! context {
     };
     (
         @impl struct [dyn]
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($struct_fields:tt)*]
         [$($ctor_args:tt)*]
         [$($ctor_assignments:tt)*]
@@ -373,7 +395,7 @@ macro_rules! context {
         [dyn $field:ident : mut $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl struct [dyn] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl struct [dyn] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
                 $field : *mut $field_ty,
@@ -400,7 +422,8 @@ macro_rules! context {
     };
     (
         @impl struct [$channel:ident]
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($struct_fields:tt)*]
         [$($ctor_args:tt)*]
         [$($ctor_assignments:tt)*]
@@ -408,7 +431,7 @@ macro_rules! context {
         [$field:ident : const $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl struct [$channel] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl struct [$channel] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
                 $field : $field_ty,
@@ -430,7 +453,8 @@ macro_rules! context {
     };
     (
         @impl struct [dyn]
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($struct_fields:tt)*]
         [$($ctor_args:tt)*]
         [$($ctor_assignments:tt)*]
@@ -438,7 +462,7 @@ macro_rules! context {
         [$field:ident : const $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl struct [dyn] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl struct [dyn] [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
                 $field : $field_ty,
@@ -460,7 +484,8 @@ macro_rules! context {
     };
     (
         @impl struct [$channel:ident]
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($struct_fields:tt)*]
         [$($ctor_args:tt)*]
         [$($ctor_assignments:tt)*]
@@ -470,12 +495,13 @@ macro_rules! context {
         $crate::std_compile_error!($crate::std_concat!(
             "invalid context field '",
             $crate::std_stringify!($field_1 $($field_2)? : $field_mod $field_ty),
-            "', allowed form is '[dyn] $name: (const | ref | mut) $type'",
+            "', allowed form is '$(dyn)? $name: $(const | ref | mut) $type'",
         ));
     };
     (
         @impl struct [$channel:ident]
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($struct_fields:tt)*]
         [$($ctor_args:tt)*]
         [$($ctor_assignments:tt)*]
@@ -483,11 +509,11 @@ macro_rules! context {
         []
     ) => {
         $crate::paste_paste! {
-            $vis struct $name $($g)* {
+            $vis struct $name $($g)* $($w)* {
                 $($struct_fields)*
             }
 
-            impl $($g)* $name $($r)* {
+            impl $($g)* $name $($r)* $($w)* {
                 $vis fn call<ContextCallReturnType>(
                     $($ctor_args)*
                     f: impl $crate::std_ops_FnOnce(&mut Self) -> ContextCallReturnType 
@@ -501,19 +527,20 @@ macro_rules! context {
                 $($struct_methods)*
             }
 
-            unsafe impl $($g)* Send for $name $($r)* { }
-            unsafe impl $($g)* Sync for $name $($r)* { }
+            unsafe impl $($g)* Send for $name $($r)* $($w)* { }
+            unsafe impl $($g)* Sync for $name $($r)* $($w)* { }
         }
     };
     (
         @impl trait
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($trait_impl_ref:tt)*]
         [$($trait_impl_mut:tt)*]
         [$field:ident : ref $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
                 if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
@@ -528,13 +555,14 @@ macro_rules! context {
     };
     (
         @impl trait
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($trait_impl_ref:tt)*]
         [$($trait_impl_mut:tt)*]
         [dyn $field:ident : ref $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
                 if let Some(res) = $crate::Context::get_raw($this.$field(), $ty) {
@@ -549,13 +577,14 @@ macro_rules! context {
     };
     (
         @impl trait
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($trait_impl_ref:tt)*]
         [$($trait_impl_mut:tt)*]
         [$field:ident : mut $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
                 if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
@@ -573,13 +602,14 @@ macro_rules! context {
     };
     (
         @impl trait
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($trait_impl_ref:tt)*]
         [$($trait_impl_mut:tt)*]
         [dyn $field:ident : mut $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
                 if let Some(res) = $crate::Context::get_raw($this.$field(), $ty) {
@@ -597,13 +627,14 @@ macro_rules! context {
     };
     (
         @impl trait
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($trait_impl_ref:tt)*]
         [$($trait_impl_mut:tt)*]
         [$field:ident : const $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
                 if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
@@ -618,13 +649,14 @@ macro_rules! context {
     };
     (
         @impl trait
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($trait_impl_ref:tt)*]
         [$($trait_impl_mut:tt)*]
         [dyn $field:ident : const $field_ty:ty $(, $($other_fields:tt)+)?]
     ) => {
         $crate::context! {
-            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*]
+            @impl trait [$name] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
                 if let Some(res) = $crate::Context::get_raw(&$this.$field, $ty) {
@@ -639,7 +671,8 @@ macro_rules! context {
     };
     (
         @impl trait
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($trait_impl_ref:tt)*]
         [$($trait_impl_mut:tt)*]
         [$field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty $(, $($other_fields:tt)+)?]
@@ -647,13 +680,14 @@ macro_rules! context {
     };
     (
         @impl trait
-        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident] [$($g:tt)*] [$($r:tt)*]
+        [$name:ident] [$vis:vis] [$ty:ident] [$this:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         [$($trait_impl_ref:tt)*]
         [$($trait_impl_mut:tt)*]
         []
     ) => {
         $crate::paste_paste! {
-            impl $($g)* $crate::Context for $name $($r)* {
+            impl $($g)* $crate::Context for $name $($r)* $($w)* {
                 fn get_raw(&self, $ty: $crate::std_any_TypeId) -> Option<&dyn $crate::std_any_Any> {
                     let $this = self;
                     $($trait_impl_ref)*
@@ -767,9 +801,9 @@ mod test {
     }
 
     context! {
-        dyn struct Context4 {
+        dyn struct Context4<T> where T: Copy + 'static {
             dyn c_3: mut Context3,
-            b: const u8
+            b: const T
         }
     }
 
@@ -777,7 +811,7 @@ mod test {
     fn test_context_4() {
         let mut x = 3;
         let res = Context3::call(PrivStr, &2, &mut x, |context| {
-            Context4::call(context, 7, |context| {
+            Context4::call(context, 7u8, |context| {
                 assert_eq!(context.b(), 7);
                 assert_eq!(replace(context.get_mut::<u32>(), 9), 3);
                 assert_eq!(context.get::<u8>(), &7);

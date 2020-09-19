@@ -6,21 +6,23 @@
 use core::any::{TypeId, Any, type_name};
 
 #[doc(hidden)]
-pub use core::ops::FnOnce as std_ops_FnOnce;
-#[doc(hidden)]
 pub use core::any::Any as std_any_Any;
 #[doc(hidden)]
 pub use core::any::TypeId as std_any_TypeId;
 #[doc(hidden)]
-pub use paste::paste as paste_paste;
-#[doc(hidden)]
-pub use core::stringify as std_stringify;
+pub use core::compile_error as std_compile_error;
 #[doc(hidden)]
 pub use core::concat as std_concat;
 #[doc(hidden)]
-pub use core::compile_error as std_compile_error;
+pub use core::ops::FnOnce as std_ops_FnOnce;
+#[doc(hidden)]
+pub use core::option::Option as std_option_Option;
+#[doc(hidden)]
+pub use core::stringify as std_stringify;
 #[doc(hidden)]
 pub use generics::parse as generics_parse;
+#[doc(hidden)]
+pub use paste::paste as paste_paste;
 
 /// A service provider pattern implementation = associated read-only container with type as key.
 ///
@@ -49,15 +51,17 @@ pub use generics::parse as generics_parse;
 ///     }
 /// }
 ///
-/// use std::convert::Into;
-/// use dyn_context::{TrivialContext, ContextExt};
 /// use call_back::CallBack;
+/// use dyn_context::{Context, ContextExt};
+/// use macro_attr_2018::macro_attr;
+/// use std::convert::Into;
 ///
-/// struct PrintContext {
-///     value: String
+/// macro_attr! {
+///     #[derive(Context!)]
+///     struct PrintContext {
+///          value: String
+///     }
 /// }
-///
-/// impl TrivialContext for PrintContext { }
 ///
 /// # fn main() {
 /// let mut call_back = CallBack::new();
@@ -164,19 +168,22 @@ pub trait ContextExt: Context {
 
 impl<T: Context + ?Sized> ContextExt for T { }
 
-/// A `TrivialContext` implementer automatically implements [`Context`](Context)
-/// as a context containing itself only.
+/// A [macro attribute](https://crates.io/crates/macro-attr-2018)
+/// deriving trivial [`Context`](Context) implementation.
+/// A trivial-implemented context is a context containing itself only.
 ///
 /// # Examples
 ///
 /// ```rust
-/// # use dyn_context::{TrivialContext, Context, ContextExt};
+/// # use dyn_context::{Context, ContextExt};
+/// # use macro_attr_2018::macro_attr;
 /// #
-/// struct SomeData {
-///     data: u16,
+/// macro_attr! {
+///     #[derive(Context!)]
+///     struct SomeData {
+///         data: u16,
+///     }
 /// }
-///
-/// impl TrivialContext for SomeData { }
 ///
 /// fn get_data_from_context(context: &dyn Context) -> u16 {
 ///     let some_data: &SomeData = context.get();
@@ -188,26 +195,54 @@ impl<T: Context + ?Sized> ContextExt for T { }
 /// let data_from_context = get_data_from_context(&some_data);
 /// assert_eq!(data_from_context, 7);
 /// # }
-pub trait TrivialContext: 'static { }
-
-impl<T: TrivialContext> Context for T {
-    fn get_raw(&self, ty: TypeId) -> Option<&dyn Any> {
-        if ty == TypeId::of::<Self>() {
-            Some(self)
-        } else {
-            None
+#[macro_export]
+macro_rules! Context {
+    (
+        ()
+        $vis:vis struct $name:ident $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::Context { @impl [$name] } $($body)*
         }
-    }
-
-    fn get_mut_raw(&mut self, ty: TypeId) -> Option<&mut dyn Any> {
-        if ty == TypeId::of::<Self>() {
-            Some(self)
-        } else {
-            None
+    };
+    (
+        ()
+        $vis:vis enum $name:ident $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::Context { @impl [$name] } $($body)*
         }
-    }
+    };
+    (
+        @impl [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
+    ) => {
+        impl $($g)* $crate::Context for $name $($r)* $($w)* {
+            fn get_raw(
+                &self,
+                ty: $crate::std_any_TypeId
+            ) -> $crate::std_option_Option<&dyn $crate::std_any_Any> {
+                if ty == $crate::std_any_TypeId::of::<Self>() {
+                    $crate::std_option_Option::Some(self)
+                } else {
+                    $crate::std_option_Option::None
+                }
+            }
+
+            fn get_mut_raw(
+                &mut self,
+                ty: $crate::std_any_TypeId
+            ) -> $crate::std_option_Option<&mut dyn $crate::std_any_Any> {
+                if ty == $crate::std_any_TypeId::of::<Self>() {
+                    $crate::std_option_Option::Some(self)
+                } else {
+                    $crate::std_option_Option::None
+                }
+            }
+        }
+    };
 }
 
+/// Allows build type, safely erasuring generic types and lifetimes.
 #[macro_export]
 macro_rules! context {
     (

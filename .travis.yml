@@ -16,4 +16,6 @@ script:
 - cargo build --verbose --no-default-features --features="$FEATURES"
 - cargo test --verbose --tests --no-default-features --features="$FEATURES"
 - cargo test --verbose --doc --no-default-features --features="$FEATURES"
+- cargo doc --verbose --no-default-features --features="$FEATURES"
 - if [ "$FEATURES" = "nightly" ]; then RUSTFLAGS="--cfg docsrs" RUSTDOCFLAGS="--cfg docsrs" cargo test --verbose --doc; fi
+- if [ "$FEATURES" = "nightly" ]; then RUSTFLAGS="--cfg docsrs" RUSTDOCFLAGS="--cfg docsrs" cargo doc --verbose; fi

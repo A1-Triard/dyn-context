@@ -145,7 +145,7 @@ impl Context for () {
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { None }
 }
 
-/// Extends [`Context`](Context) with methods that make it easier to access the content of the context.
+/// Extends [`Context`](trait@Context) with methods that make it easier to access the content of the context.
 pub trait ContextExt: Context {
     /// Borrows shareable data reference.
     ///
@@ -169,7 +169,7 @@ pub trait ContextExt: Context {
 impl<T: Context + ?Sized> ContextExt for T { }
 
 /// A [macro attribute](https://crates.io/crates/macro-attr-2018)
-/// deriving trivial [`Context`](Context) implementation.
+/// deriving trivial [`Context`](trait@Context) implementation.
 /// A trivial-implemented context is a context containing itself only.
 ///
 /// # Examples
@@ -243,7 +243,8 @@ macro_rules! Context {
 }
 
 /// Creates structure, allowing to pack several references into
-/// a one reference to a `'static` type, optionally implementing the [`Context`](Context) trait. 
+/// a one reference to a `'static` type,
+/// optionally implementing the [`Context`](trait@Context) trait. 
 ///
 /// In Rust, lifetimes are intrusive, and sometimes it can lead to
 /// an inadequately complex code. Moreover, in some cases it can lead to an _impossible code_,
@@ -279,7 +280,7 @@ macro_rules! Context {
 /// # }
 /// ```
 ///
-/// The `context` macro also allows automatically implement the [`Context`](Context) trait.
+/// The `context` macro also allows automatically implement the [`Context`](trait@Context) trait.
 #[macro_export]
 macro_rules! context {
     (

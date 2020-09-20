@@ -1,6 +1,11 @@
 #![cfg_attr(feature="nightly", feature(never_type))]
 #![deny(warnings)]
 
+//! **Crate features**
+//!
+//! * `"nightly"`
+//! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
+
 #![no_std]
 
 use core::any::{TypeId, Any, type_name};

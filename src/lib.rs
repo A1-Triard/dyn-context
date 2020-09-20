@@ -808,7 +808,7 @@ macro_rules! context_impl {
 pub mod example {
     //! [`context`](context) macro expansion example.
     //!
-    //! ```rust
+    //! ```ignore
     //! context! {
     //!     pub struct StrData {
     //!         r: ref str,

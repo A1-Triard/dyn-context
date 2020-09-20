@@ -42,6 +42,7 @@ mod call_back {
         }
     }
 }
+
 context! {
     struct PrintValue {
         value: ref str

@@ -242,16 +242,19 @@ macro_rules! Context {
     };
 }
 
+/// Creates structure, allowing to pack several references into
+/// a one reference to a `'static` type, optionally implementing the [`Context`](Context) trait. 
+///
 /// In Rust, lifetimes are intrusive, and sometimes it can lead to
 /// an inadequately complex code. Moreover, in some cases it can lead to an _impossible code_,
 /// means code so complex, so it can not make to compiles, even it is logically meaningful.
 /// (Such situations could occur because Rust does not support existential types
 /// with infinite parameters list.)
 ///
-/// The `context` macro creates structure, allowing to pack several referencies into a
-/// a one refernce to a `'static` type.
+/// The `context` macro allows to "compress" several lifetimes into a one.
 ///
-/// For example, using `context` you can pack two `str` referencies into a one:
+/// For example, using `context` you can pack together two `str` references and use them with
+/// a code, requiring a `'static` type:
 /// ```rust
 /// # use dyn_context::{context};
 /// #
@@ -275,6 +278,8 @@ macro_rules! Context {
 /// assert_eq!(r, "tr1r2");
 /// # }
 /// ```
+///
+/// The `context` macro also allows automatically implement the [`Context`](Context) trait.
 #[macro_export]
 macro_rules! context {
     (

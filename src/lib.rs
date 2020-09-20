@@ -288,7 +288,7 @@ macro_rules! context {
         $vis:vis struct $name:ident $($body:tt)*
     ) => {
         $crate::generics_parse! {
-            $crate::context {
+            $crate::context_impl {
                 @struct [$([$attr])*] [$vis] [$name]
             }
             $($body)*
@@ -299,12 +299,17 @@ macro_rules! context {
         $vis:vis dyn struct $name:ident $($body:tt)*
     ) => {
         $crate::generics_parse! {
-            $crate::context {
+            $crate::context_impl {
                 @struct dyn [$([$attr])*] [$vis] [$name]
             }
             $($body)*
         }
     };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! context_impl {
     (
         @struct [$([$attr:meta])*] [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         {
@@ -313,7 +318,7 @@ macro_rules! context {
             ),+ $(,)?)?
         }
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl struct [static]
             [$name] [$([$attr])*] [$vis] [ty] [this]
             [$($g)*] [$($r)*] [$($w)*]
@@ -329,14 +334,14 @@ macro_rules! context {
             ),+ $(,)?)?
         }
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl struct [dyn]
             [$name] [$([$attr])*] [$vis] [ty] [this]
             [$($g)*] [$($r)*] [$($w)*]
             [] [] [] []
             [$($([$field_1 $($field_2)? : $field_mod $field_ty])+)?]
         }
-        $crate::context! {
+        $crate::context_impl! {
             @impl trait
             [$name] [ty] [this]
             [$($g)*] [$($r)*] [$($w)*]
@@ -386,7 +391,7 @@ macro_rules! context {
         [$($struct_methods:tt)*]
         [[$field:ident : ref $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl struct [$channel] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
@@ -417,7 +422,7 @@ macro_rules! context {
         [$($struct_methods:tt)*]
         [[dyn $field:ident : ref $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl struct [dyn] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
@@ -448,7 +453,7 @@ macro_rules! context {
         [$($struct_methods:tt)*]
         [[$field:ident : mut $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl struct [$channel] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
@@ -484,7 +489,7 @@ macro_rules! context {
         [$($struct_methods:tt)*]
         [[dyn $field:ident : mut $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl struct [dyn] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
@@ -520,7 +525,7 @@ macro_rules! context {
         [$($struct_methods:tt)*]
         [[$field:ident : const $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl struct [$channel] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
@@ -551,7 +556,7 @@ macro_rules! context {
         [$($struct_methods:tt)*]
         [[$field:ident : const $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl struct [dyn] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($struct_fields)*
@@ -630,7 +635,7 @@ macro_rules! context {
         [$($trait_impl_mut:tt)*]
         [[$field:ident : ref $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
@@ -652,7 +657,7 @@ macro_rules! context {
         [$($trait_impl_mut:tt)*]
         [[dyn $field:ident : ref $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
@@ -674,7 +679,7 @@ macro_rules! context {
         [$($trait_impl_mut:tt)*]
         [[$field:ident : mut $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
@@ -699,7 +704,7 @@ macro_rules! context {
         [$($trait_impl_mut:tt)*]
         [[dyn $field:ident : mut $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
@@ -724,7 +729,7 @@ macro_rules! context {
         [$($trait_impl_mut:tt)*]
         [[$field:ident : const $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
@@ -746,7 +751,7 @@ macro_rules! context {
         [$($trait_impl_mut:tt)*]
         [[dyn $field:ident : const $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::context! {
+        $crate::context_impl! {
             @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($trait_impl_ref)*
@@ -797,6 +802,24 @@ macro_rules! context {
 
 #[cfg(docsrs)]
 pub mod example {
+    //! [`context`](context) macro expansion example.
+    //!
+    //! ```rust
+    //! context! {
+    //!     pub struct StrData {
+    //!         r: ref str,
+    //!     }
+    //! }
+    //!
+    //! context! {
+    //!     pub dyn struct ExampleContext {
+    //!         data: ref Data,
+    //!         str_data: mut StrData,
+    //!         id: const usize,
+    //!     }
+    //! }
+    //! ```
+
     pub struct Data {
         pub x: i16,
         pub y: i16

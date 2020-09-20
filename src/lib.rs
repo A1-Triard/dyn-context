@@ -76,7 +76,6 @@ pub use paste::paste as paste_paste;
 /// });
 /// call_back.call_back(&mut PrintContext { value: "Hello, world!".into() });
 /// # }
-///
 /// ```
 /// 
 /// For using `&str` instead of `String` the `context!` macro can be used:

@@ -1,3 +1,4 @@
+#![cfg_attr(feature="nightly", feature(external_doc))]
 #![cfg_attr(feature="nightly", feature(never_type))]
 #![deny(warnings)]
 
@@ -7,6 +8,10 @@
 //! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
 
 #![no_std]
+
+#[doc(include="../README.md")]
+#[cfg(feature="nightly")]
+type _DocTestReadme = ();
 
 use core::any::{TypeId, Any, type_name};
 

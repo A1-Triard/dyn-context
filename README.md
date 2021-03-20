@@ -41,26 +41,25 @@ mod call_back {
     }
 }
 
-context! {
-    struct PrintValue {
-        value: ref str
+use dyn_context::{free_lifetimes, Context, ContextExt};
+use call_back::CallBack;
+
+free_lifetimes! {
+    struct PrintContext {
+        value: 'value ref str
     }
 }
 
-context! {
-    dyn struct PrintContext {
-        value: ref PrintValue
-    }
-}
+Context!(() struct PrintContext { .. });
 
 fn main() {
     let mut call_back = CallBack::new();
     call_back.set_callback(|context| {
-        let print_value: &PrintValue = context.get();
-        println!("{}", print_value.value());
+        let print: &PrintContext = context.get();
+        println!("{}", print.value());
     });
-    PrintValue::call("Hello, world!", |print_value| {
-        PrintContext::call(print_value, |context| call_back.call_back(context));
-    });
+    PrintContextBuilder {
+        value: "Hello, world!"
+    }.build_and_then(|context| call_back.call_back(context));
 }
 ```

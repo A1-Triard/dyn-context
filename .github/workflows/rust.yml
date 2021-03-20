@@ -24,6 +24,7 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: ${{ matrix.rust }}
+        override: true
     - name: Build
       run: cargo build --verbose --no-default-features --features="$FEATURES"
     - name: Tests

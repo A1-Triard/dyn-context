@@ -12,13 +12,13 @@ env:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
         rust: [stable, beta, nightly]
-        features: [nightly, ""]
     runs-on: ${{ matrix.os }}
     env: 
-      FEATURES: ${{ matrix.features }}
+      FEATURES: "${{ matrix.rust == 'nightly' && 'nightly' || '' }}"
     steps:
     - uses: actions/checkout@v2
     - name: Build

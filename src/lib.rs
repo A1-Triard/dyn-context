@@ -603,10 +603,10 @@ macro_rules! free_lifetimes_impl {
             }
 
             impl $($builder_g)* [< $name Builder >] $($builder_r)* $($builder_w)* {
-                $vis fn build_and_then<StaticLifetimeStructBuildReturnType>(
+                $vis fn build_and_then<FreeLifetimesStructBuildReturnType>(
                     &mut self,
-                    f: impl $crate::std_ops_FnOnce(&mut $name) -> StaticLifetimeStructBuildReturnType 
-                ) -> StaticLifetimeStructBuildReturnType {
+                    f: impl $crate::std_ops_FnOnce(&mut $name) -> FreeLifetimesStructBuildReturnType 
+                ) -> FreeLifetimesStructBuildReturnType {
                     let $builder = self;
                     let mut free_lifetimes = $name {
                         $($ctor_assignments)*

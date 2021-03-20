@@ -11,13 +11,25 @@ env:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        rust: [stable, beta, nightly]
+        features: [nightly, ""]
+    runs-on: ${{ matrix.os }}
+    env: 
+      FEATURES: ${{ matrix.features }}
     steps:
     - uses: actions/checkout@v2
     - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-
+      run: cargo build --verbose --no-default-features --features="$FEATURES"
+    - name: Tests
+      run: cargo test --verbose --tests --no-default-features --features="$FEATURES"
+    - name: Test doc
+      run: cargo test --verbose --doc --no-default-features --features="$FEATURES"
+    - name: Doc
+      run: cargo doc --verbose --no-default-features --features="$FEATURES"
+    - name: Test docsrs
+      run: if [ "$FEATURES" = "nightly" ]; then RUSTFLAGS="--cfg docsrs" RUSTDOCFLAGS="--cfg docsrs" cargo test --verbose --doc; fi
+    - name: Docsrs
+      run: if [ "$FEATURES" = "nightly" ]; then RUSTFLAGS="--cfg docsrs" RUSTDOCFLAGS="--cfg docsrs" cargo doc --verbose; fi

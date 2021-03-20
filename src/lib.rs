@@ -25,6 +25,8 @@ pub use core::option::Option as std_option_Option;
 #[doc(hidden)]
 pub use core::stringify as std_stringify;
 #[doc(hidden)]
+pub use generics::concat as generics_concat;
+#[doc(hidden)]
 pub use generics::parse as generics_parse;
 #[doc(hidden)]
 pub use paste::paste as paste_paste;
@@ -242,6 +244,286 @@ macro_rules! Context {
                     $crate::std_option_Option::None
                 }
             }
+        }
+    };
+}
+
+/// Creates structure, allowing to pack several references into
+/// a one reference to a `'static` type,
+/// optionally implementing the [`Context`](trait@Context) trait. 
+///
+/// In Rust, lifetimes are intrusive, and sometimes it can lead to
+/// an inadequately complex code. Moreover, in some cases it can lead to an _impossible code_,
+/// means code so complex, so it can not make to compiles, even it is logically meaningful.
+/// (Such situations could occur because Rust does not support existential types
+/// with infinite parameters list.)
+///
+/// The `context` macro allows to "compress" several lifetimes into a one.
+///
+/// For example, using `context` you can pack together two `str` references and use them with
+/// a code, requiring a `'static` type:
+/// ```rust
+/// # use dyn_context::{context};
+/// #
+/// context! {
+///     struct DoubleStr {
+///         str_1: ref str,
+///         str_2: ref str
+///     }
+/// }
+///
+/// fn call_back<T: 'static, R>(t: &T, callback: impl FnOnce(&T) -> R) -> R {
+///     callback(t)
+/// }
+///
+/// # fn main() {
+/// let s_1 = String::from("str1");
+/// let s_2 = String::from("str2");
+/// let r = DoubleStr::call(&s_1[1..], &s_2[2..], |double_str| call_back(double_str, |double_str| {
+///     format!("{}{}", double_str.str_1(), double_str.str_2())
+/// }));
+/// assert_eq!(r, "tr1r2");
+/// # }
+/// ```
+///
+#[macro_export]
+macro_rules! static_lifetime {
+    (
+        $(#[$attr:meta])*
+        $vis:vis struct $name:ident $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::static_lifetime_impl {
+                @struct [$([$attr])*] [$vis] [$name]
+            }
+            $($body)*
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! static_lifetime_impl {
+    (
+        @struct [$([$attr:meta])*] [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        {
+            $($(
+                $field:ident : $($field_lt:lifetime)? $field_mod:ident $field_ty:ty
+            ),+ $(,)?)?
+        }
+    ) => {
+        $crate::static_lifetime_impl! {
+            @impl struct
+            [$name] [$([$attr])*] [$vis] [ty] [this] [builder]
+            [$($g)*] [$($r)*] [$($w)*]
+            [] [] [] [] []
+            [$($([$field : $($field_lt)? $field_mod $field_ty])+)?]
+        }
+    };
+    (
+        @struct [$([$attr:meta])*] [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("\
+            invalid static lifetime struct definition, allowed form is\n\
+            \n\
+            $(#[attr])* $vis struct $name {\n\
+                $field_1_name: $('field_lt ref | 'field_lt mut | const) $field_1_type,\n\
+                $field_2_name: $('field_lt ref | 'field_lt mut | const) $field_2_type,\n\
+                ...\n\
+            }\n\
+            \n\
+        ");
+    };
+    (
+        @impl struct
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($builder_lts:tt)*]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [[$field:ident : $field_lt:lifetime ref $field_ty:ty] $($other_fields:tt)*]
+    ) => {
+        $crate::static_lifetime_impl! {
+            @impl struct [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
+            [
+                $($builder_lts)*
+                [$field_lt]
+            ]
+            [
+                $($builder_fields)*
+                pub $field : & $field_lt $field_ty,
+            ]
+            [
+                $($struct_fields)*
+                $field : *const $field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field : $builder . $field as *const $field_ty,
+            ]
+            [
+                $($struct_methods)*
+                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
+            ]
+            [$($other_fields)*]
+        }
+    };
+    (
+        @impl struct
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($builder_lts:tt)*]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [[$field:ident : $field_lt:lifetime mut $field_ty:ty] $($other_fields:tt)*]
+    ) => {
+        $crate::static_lifetime_impl! {
+            @impl struct [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
+            [
+                $($builder_lts)*
+                [$field_lt]
+            ]
+            [
+                $($builder_fields)*
+                pub $field : & $field_lt mut $field_ty,
+            ]
+            [
+                $($struct_fields)*
+                $field : *mut $field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field : $builder . $field as *mut $field_ty,
+            ]
+            [
+                $($struct_methods)*
+
+                #[allow(dead_code)]
+                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
+
+                #[allow(dead_code)]
+                $vis fn [< $field _mut >] (&mut self) -> &mut $field_ty { unsafe { &mut *self.$field } }
+            ]
+            [$($other_fields)*]
+        }
+    };
+    (
+        @impl struct
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($builder_lts:tt)*]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [[$field:ident : const $field_ty:ty] $($other_fields:tt)*]
+    ) => {
+        $crate::static_lifetime_impl! {
+            @impl struct [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
+            [$($builder_lts)*]
+            [
+                $($builder_fields)*
+                pub $field : $field_ty,
+            ]
+            [
+                $($struct_fields)*
+                $field : $field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field: $builder . $field,
+            ]
+            [
+                $($struct_methods)*
+                $vis fn $field (&self) -> $field_ty { self.$field }
+            ]
+            [$($other_fields)*]
+        }
+    };
+    (
+        @impl struct
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($builder_lts:tt)*]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [[$field:ident : $($field_lt:lifetime)? $field_mod:ident $field_ty:ty] $($other_fields:tt)*]
+    ) => {
+        $crate::std_compile_error!($crate::std_concat!(
+            "invalid static lifetime struct field '",
+            $crate::std_stringify!($field : $($field_lt)? $field_mod $field_ty),
+            "', allowed form is '$name: $('lt ref | 'lt mut | const) $type'",
+        ));
+    };
+    (
+        @impl struct
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($([$builder_lts:tt])+)?]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        []
+    ) => {    
+        $crate::generics_concat! {
+            $crate::static_lifetime_impl {
+                @impl [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
+                [$($builder_fields)*]
+                [$($struct_fields)*]
+                [$($ctor_assignments)*]
+                [$($struct_methods)*]
+            }
+            [$( < $($builder_lts),+ > )?] [$( < $($builder_lts),+ > )?] [],
+            [$($g)*] [$($r)*] [$($w)*]
+        }
+    };
+    (
+        @impl
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [$($builder_g:tt)*] [$($builder_r:tt)*] [$($builder_w:tt)*]
+    ) => {
+        $crate::paste_paste! {
+            $vis struct [< $name Builder >] $($builder_g)* $($w)* {
+                $($builder_fields)*
+            }
+
+            impl $($builder_g)* [< $name Builder >] $($builder_r)* $($builder_w)* {
+                $vis fn build_and_then<StaticLifetimeStructBuildReturnType>(
+                    &mut self,
+                    f: impl $crate::std_ops_FnOnce(&mut $name) -> StaticLifetimeStructBuildReturnType 
+                ) -> StaticLifetimeStructBuildReturnType {
+                    let $builder = self;
+                    let mut static_lifetime = $name {
+                        $($ctor_assignments)*
+                    };
+                    f(&mut static_lifetime)
+                }
+            }
+                        
+            $(#[$attr])*
+            $vis struct $name $($g)* $($w)* {
+                $($struct_fields)*
+            }
+
+            impl $($g)* $name $($r)* $($w)* {
+                $($struct_methods)*
+            }
+
+            unsafe impl $($g)* Send for $name $($r)* $($w)* { }
+            unsafe impl $($g)* Sync for $name $($r)* $($w)* { }
         }
     };
 }
@@ -849,18 +1131,22 @@ mod test {
     use crate::ContextExt;
     use core::mem::replace;
 
-    context! {
+    static_lifetime! {
         struct Context1 {
             a: const u8,
-            b: ref u16,
-            c: mut u32,
+            b: 'b ref u16,
+            c: 'c mut u32,
         }
     }
 
     #[test]
     fn test_context_1() {
         let mut x = 3;
-        let res = Context1::call(1, &2, &mut x, |context| {
+        let res = Context1Builder {
+            a: 1,
+            b: &2,
+            c: &mut x
+        }.build_and_then(|context| {
             assert_eq!(context.a(), 1u8);
             assert_eq!(context.b(), &2u16);
             assert_eq!(replace(context.c_mut(), 12), 3u32);

@@ -80,7 +80,7 @@ pub use paste::paste as paste_paste;
 /// # }
 /// ```
 /// 
-/// For using `&str` instead of `String` the `static_lifetime!` macro can be used:
+/// For using `&str` instead of `String` the `free_lifetimes!` macro can be used:
 /// ```rust
 /// # mod call_back {
 /// #     use dyn_context::Context;
@@ -102,10 +102,10 @@ pub use paste::paste as paste_paste;
 /// #     }
 /// # }
 /// # 
-/// use dyn_context::{static_lifetime, Context, ContextExt};
+/// use dyn_context::{free_lifetimes, Context, ContextExt};
 /// use call_back::CallBack;
 ///
-/// static_lifetime! {
+/// free_lifetimes! {
 ///     struct PrintContext {
 ///         value: 'value ref str
 ///     }
@@ -125,7 +125,7 @@ pub use paste::paste as paste_paste;
 /// # }
 /// ```
 /// 
-/// Because the `static_lifetime` macro cannot be used similtiniosly with `macro_attr`,
+/// Because the `free_lifetimes` macro cannot be used similtiniosly with `macro_attr`,
 /// standalone `Context` macro used here.
 pub trait Context: 'static {
     /// Borrows shareable data entry.
@@ -173,7 +173,7 @@ pub trait ContextExt: Context {
 
 impl<T: Context + ?Sized> ContextExt for T { }
 
-static_lifetime! {
+free_lifetimes! {
     struct ContextSum {
         a: 'a ref dyn Context,
         b: 'b ref dyn Context,
@@ -196,7 +196,7 @@ impl Context for ContextSum {
     }
 }
 
-static_lifetime! {
+free_lifetimes! {
     struct ContextSumMut {
         a: 'a mut dyn Context,
         b: 'b mut dyn Context,
@@ -353,14 +353,14 @@ macro_rules! Context {
 /// (Such situations could occur because Rust does not support existential types
 /// with infinite parameters list.)
 ///
-/// The `static_lifetime` macro allows to "compress" several lifetimes into a one.
+/// The `free_lifetimes` macro allows to "compress" several lifetimes into a one.
 ///
 /// For example, using `context` you can pack together two `str` references and use them with
 /// a code, requiring a `'static` type:
 /// ```rust
-/// # use dyn_context::{static_lifetime};
+/// # use dyn_context::{free_lifetimes};
 /// #
-/// static_lifetime! {
+/// free_lifetimes! {
 ///     struct DoubleStr {
 ///         str_1: 'str_1 ref str,
 ///         str_2: 'str_2 ref str
@@ -384,13 +384,13 @@ macro_rules! Context {
 /// # }
 /// ```
 #[macro_export]
-macro_rules! static_lifetime {
+macro_rules! free_lifetimes {
     (
         $(#[$attr:meta])*
         $vis:vis struct $name:ident $($body:tt)*
     ) => {
         $crate::generics_parse! {
-            $crate::static_lifetime_impl {
+            $crate::free_lifetimes_impl {
                 @struct [$([$attr])*] [$vis] [$name]
             }
             $($body)*
@@ -400,7 +400,7 @@ macro_rules! static_lifetime {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! static_lifetime_impl {
+macro_rules! free_lifetimes_impl {
     (
         @struct [$([$attr:meta])*] [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         {
@@ -409,7 +409,7 @@ macro_rules! static_lifetime_impl {
             ),+ $(,)?)?
         }
     ) => {
-        $crate::static_lifetime_impl! {
+        $crate::free_lifetimes_impl! {
             @impl struct
             [$name] [$([$attr])*] [$vis] [ty] [this] [builder]
             [$($g)*] [$($r)*] [$($w)*]
@@ -443,7 +443,7 @@ macro_rules! static_lifetime_impl {
         [$($struct_methods:tt)*]
         [[$field:ident : $field_lt:lifetime ref $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::static_lifetime_impl! {
+        $crate::free_lifetimes_impl! {
             @impl struct [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($builder_lts)*
@@ -479,7 +479,7 @@ macro_rules! static_lifetime_impl {
         [$($struct_methods:tt)*]
         [[$field:ident : $field_lt:lifetime mut $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::static_lifetime_impl! {
+        $crate::free_lifetimes_impl! {
             @impl struct [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
             [
                 $($builder_lts)*
@@ -520,7 +520,7 @@ macro_rules! static_lifetime_impl {
         [$($struct_methods:tt)*]
         [[$field:ident : const $field_ty:ty] $($other_fields:tt)*]
     ) => {
-        $crate::static_lifetime_impl! {
+        $crate::free_lifetimes_impl! {
             @impl struct [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
             [$($builder_lts)*]
             [
@@ -571,7 +571,7 @@ macro_rules! static_lifetime_impl {
         []
     ) => {    
         $crate::generics_concat! {
-            $crate::static_lifetime_impl {
+            $crate::free_lifetimes_impl {
                 @impl [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
                 [$($builder_fields)*]
                 [$($struct_fields)*]
@@ -603,10 +603,10 @@ macro_rules! static_lifetime_impl {
                     f: impl $crate::std_ops_FnOnce(&mut $name) -> StaticLifetimeStructBuildReturnType 
                 ) -> StaticLifetimeStructBuildReturnType {
                     let $builder = self;
-                    let mut static_lifetime = $name {
+                    let mut free_lifetimes = $name {
                         $($ctor_assignments)*
                     };
-                    f(&mut static_lifetime)
+                    f(&mut free_lifetimes)
                 }
             }
                         
@@ -671,7 +671,7 @@ mod test {
     use core::mem::replace;
     use macro_attr_2018::macro_attr;
 
-    static_lifetime! {
+    free_lifetimes! {
         struct Context1 {
             a: const u8,
             b: 'b ref u16,

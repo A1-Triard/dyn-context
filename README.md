@@ -1,5 +1,3 @@
-![travis](https://travis-ci.org/A1-Triard/dyn-context.svg?branch=master)
-
 # dyn-context
 
 This crate provides simple mechanism for lifetimes and generics safely erasing.

@@ -45,3 +45,5 @@ jobs:
         RUSTFLAGS: "--cfg docsrs"
         RUSTDOCFLAGS: "--cfg docsrs"
       if: "${{ matrix.rust == 'nightly' }}"
+    - name: build --release
+      run: cargo build --verbose --release --no-default-features --features="$FEATURES"

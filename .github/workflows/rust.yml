@@ -25,15 +25,23 @@ jobs:
       with:
         toolchain: ${{ matrix.rust }}
         override: true
-    - name: Build
+    - name: build
       run: cargo build --verbose --no-default-features --features="$FEATURES"
-    - name: Tests
+    - name: test --tests
       run: cargo test --verbose --tests --no-default-features --features="$FEATURES"
-    - name: Test doc
+    - name: test --doc
       run: cargo test --verbose --doc --no-default-features --features="$FEATURES"
-    - name: Doc
+    - name: doc
       run: cargo doc --verbose --no-default-features --features="$FEATURES"
-    - name: Test docsrs
-      run: if [ "$FEATURES" = "nightly" ]; then RUSTFLAGS="--cfg docsrs" RUSTDOCFLAGS="--cfg docsrs" cargo test --verbose --doc; fi
-    - name: Docsrs
-      run: if [ "$FEATURES" = "nightly" ]; then RUSTFLAGS="--cfg docsrs" RUSTDOCFLAGS="--cfg docsrs" cargo doc --verbose; fi
+    - name: test --docsrs
+      run: cargo test --verbose --doc
+      env:
+        RUSTFLAGS: "--cfg docsrs"
+        RUSTDOCFLAGS: "--cfg docsrs"
+      if: "${{ matrix.rust == 'nightly' }}"
+    - name: --docsrs
+      run: cargo doc --verbose
+      env:
+        RUSTFLAGS: "--cfg docsrs"
+        RUSTDOCFLAGS: "--cfg docsrs"
+      if: "${{ matrix.rust == 'nightly' }}"

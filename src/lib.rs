@@ -80,7 +80,7 @@ pub use paste::paste as paste_paste;
 /// # }
 /// ```
 /// 
-/// For using `&str` instead of `String` the `context!` macro can be used:
+/// For using `&str` instead of `String` the `static_lifetime!` macro can be used:
 /// ```rust
 /// # mod call_back {
 /// #     use dyn_context::Context;
@@ -102,32 +102,31 @@ pub use paste::paste as paste_paste;
 /// #     }
 /// # }
 /// # 
-/// use dyn_context::{context, ContextExt};
+/// use dyn_context::{static_lifetime, Context, ContextExt};
 /// use call_back::CallBack;
 ///
-/// context! {
-///     struct PrintValue {
-///         value: ref str
+/// static_lifetime! {
+///     struct PrintContext {
+///         value: 'value ref str
 ///     }
 /// }
-///
-/// context! {
-///     dyn struct PrintContext {
-///         value: ref PrintValue
-///     }
-/// }
+/// 
+/// Context!(() struct PrintContext { .. });
 ///
 /// # fn main() {
 /// let mut call_back = CallBack::new();
 /// call_back.set_callback(|context| {
-///     let print_value: &PrintValue = context.get();
-///     println!("{}", print_value.value());
+///     let print: &PrintContext = context.get();
+///     println!("{}", print.value());
 /// });
-/// PrintValue::call("Hello, world!", |print_value| {
-///     PrintContext::call(print_value, |context| call_back.call_back(context));
-/// });
+/// PrintContextBuilder {
+///     value: "Hello, world!"
+/// }.build_and_then(|context| call_back.call_back(context));
 /// # }
 /// ```
+/// 
+/// Because the `static_lifetime` macro cannot be used similtiniosly with `macro_attr`,
+/// standalone `Context` macro used here.
 pub trait Context: 'static {
     /// Borrows shareable data entry.
     ///
@@ -173,6 +172,103 @@ pub trait ContextExt: Context {
 }
 
 impl<T: Context + ?Sized> ContextExt for T { }
+
+static_lifetime! {
+    struct ContextSum {
+        a: 'a ref dyn Context,
+        b: 'b ref dyn Context,
+    }
+}
+
+impl Context for ContextSum {
+    fn get_raw(&self, ty: TypeId) -> Option<&dyn Any> {
+        if let Some(r) = self.a().get_raw(ty) {
+            Some(r)
+        } else if let Some(r) = self.b().get_raw(ty) {
+            Some(r)
+        } else {
+            None
+        }
+    }
+
+    fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> {
+        unreachable!()
+    }
+}
+
+static_lifetime! {
+    struct ContextSumMut {
+        a: 'a mut dyn Context,
+        b: 'b mut dyn Context,
+    }
+}
+
+impl Context for ContextSumMut {
+    fn get_raw(&self, ty: TypeId) -> Option<&dyn Any> {
+        if let Some(r) = self.a().get_raw(ty) {
+            Some(r)
+        } else if let Some(r) = self.b().get_raw(ty) {
+            Some(r)
+        } else {
+            None
+        }
+    }
+
+    fn get_mut_raw(&mut self, ty: TypeId) -> Option<&mut dyn Any> {
+        let r = if let Some(r) = self.a_mut().get_mut_raw(ty) {
+            Some(r as *mut _)
+        } else if let Some(r) = self.b_mut().get_mut_raw(ty) {
+            Some(r as *mut _)
+        } else {
+            None
+        };
+        r.map(|x| unsafe { &mut *x })
+    }
+}
+
+pub trait ContextMergeExt {
+    fn merge_and_then<T>(self, f: impl FnOnce(&dyn Context) -> T, other: &dyn Context) -> T;
+}
+
+impl<C: Context> ContextMergeExt for &C {
+    fn merge_and_then<T>(self, f: impl FnOnce(&dyn Context) -> T, other: &dyn Context) -> T {
+        ContextSumBuilder {
+            a: self,
+            b: other,
+        }.build_and_then(|x| f(x))
+    }
+}
+
+impl ContextMergeExt for &dyn Context {
+    fn merge_and_then<T>(self, f: impl FnOnce(&dyn Context) -> T, other: &dyn Context) -> T {
+        ContextSumBuilder {
+            a: self,
+            b: other,
+        }.build_and_then(|x| f(x))
+    }
+}
+
+pub trait ContextMergeMutExt {
+    fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn Context) -> T, other: &mut dyn Context) -> T;
+}
+
+impl<C: Context> ContextMergeMutExt for &mut C {
+    fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn Context) -> T, other: &mut dyn Context) -> T {
+        ContextSumMutBuilder {
+            a: self,
+            b: other,
+        }.build_and_then(|x| f(x))
+    }
+}
+
+impl ContextMergeMutExt for &mut dyn Context {
+    fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn Context) -> T, other: &mut dyn Context) -> T {
+        ContextSumBuilder {
+            a: self,
+            b: other,
+        }.build_and_then(|x| f(x))
+    }
+}
 
 /// A [macro attribute](https://crates.io/crates/macro-attr-2018)
 /// deriving trivial [`Context`](trait@Context) implementation.
@@ -249,8 +345,7 @@ macro_rules! Context {
 }
 
 /// Creates structure, allowing to pack several references into
-/// a one reference to a `'static` type,
-/// optionally implementing the [`Context`](trait@Context) trait. 
+/// a one reference to a `'static` type.
 ///
 /// In Rust, lifetimes are intrusive, and sometimes it can lead to
 /// an inadequately complex code. Moreover, in some cases it can lead to an _impossible code_,
@@ -258,17 +353,17 @@ macro_rules! Context {
 /// (Such situations could occur because Rust does not support existential types
 /// with infinite parameters list.)
 ///
-/// The `context` macro allows to "compress" several lifetimes into a one.
+/// The `static_lifetime` macro allows to "compress" several lifetimes into a one.
 ///
 /// For example, using `context` you can pack together two `str` references and use them with
 /// a code, requiring a `'static` type:
 /// ```rust
-/// # use dyn_context::{context};
+/// # use dyn_context::{static_lifetime};
 /// #
-/// context! {
+/// static_lifetime! {
 ///     struct DoubleStr {
-///         str_1: ref str,
-///         str_2: ref str
+///         str_1: 'str_1 ref str,
+///         str_2: 'str_2 ref str
 ///     }
 /// }
 ///
@@ -279,13 +374,15 @@ macro_rules! Context {
 /// # fn main() {
 /// let s_1 = String::from("str1");
 /// let s_2 = String::from("str2");
-/// let r = DoubleStr::call(&s_1[1..], &s_2[2..], |double_str| call_back(double_str, |double_str| {
+/// let r = DoubleStrBuilder {
+///     str_1: &s_1[1..],
+///     str_2: &s_2[2..]
+/// }.build_and_then(|double_str| call_back(double_str, |double_str| {
 ///     format!("{}{}", double_str.str_1(), double_str.str_2())
 /// }));
 /// assert_eq!(r, "tr1r2");
 /// # }
 /// ```
-///
 #[macro_export]
 macro_rules! static_lifetime {
     (
@@ -528,564 +625,6 @@ macro_rules! static_lifetime_impl {
     };
 }
 
-/// Creates structure, allowing to pack several references into
-/// a one reference to a `'static` type,
-/// optionally implementing the [`Context`](trait@Context) trait. 
-///
-/// In Rust, lifetimes are intrusive, and sometimes it can lead to
-/// an inadequately complex code. Moreover, in some cases it can lead to an _impossible code_,
-/// means code so complex, so it can not make to compiles, even it is logically meaningful.
-/// (Such situations could occur because Rust does not support existential types
-/// with infinite parameters list.)
-///
-/// The `context` macro allows to "compress" several lifetimes into a one.
-///
-/// For example, using `context` you can pack together two `str` references and use them with
-/// a code, requiring a `'static` type:
-/// ```rust
-/// # use dyn_context::{context};
-/// #
-/// context! {
-///     struct DoubleStr {
-///         str_1: ref str,
-///         str_2: ref str
-///     }
-/// }
-///
-/// fn call_back<T: 'static, R>(t: &T, callback: impl FnOnce(&T) -> R) -> R {
-///     callback(t)
-/// }
-///
-/// # fn main() {
-/// let s_1 = String::from("str1");
-/// let s_2 = String::from("str2");
-/// let r = DoubleStr::call(&s_1[1..], &s_2[2..], |double_str| call_back(double_str, |double_str| {
-///     format!("{}{}", double_str.str_1(), double_str.str_2())
-/// }));
-/// assert_eq!(r, "tr1r2");
-/// # }
-/// ```
-///
-/// The `context` macro also allows automatically implement the [`Context`](trait@Context) trait.
-#[macro_export]
-macro_rules! context {
-    (
-        $(#[$attr:meta])*
-        $vis:vis struct $name:ident $($body:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::context_impl {
-                @struct [$([$attr])*] [$vis] [$name]
-            }
-            $($body)*
-        }
-    };
-    (
-        $(#[$attr:meta])*
-        $vis:vis dyn struct $name:ident $($body:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::context_impl {
-                @struct dyn [$([$attr])*] [$vis] [$name]
-            }
-            $($body)*
-        }
-    };
-}
-
-#[doc(hidden)]
-#[macro_export]
-macro_rules! context_impl {
-    (
-        @struct [$([$attr:meta])*] [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        {
-            $($(
-                $field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty
-            ),+ $(,)?)?
-        }
-    ) => {
-        $crate::context_impl! {
-            @impl struct [static]
-            [$name] [$([$attr])*] [$vis] [ty] [this]
-            [$($g)*] [$($r)*] [$($w)*]
-            [] [] [] []
-            [$($([$field_1 $($field_2)? : $field_mod $field_ty])+)?]
-        }
-    };
-    (
-        @struct dyn [$([$attr:meta])*] [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        {
-            $($(
-                $field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty
-            ),+ $(,)?)?
-        }
-    ) => {
-        $crate::context_impl! {
-            @impl struct [dyn]
-            [$name] [$([$attr])*] [$vis] [ty] [this]
-            [$($g)*] [$($r)*] [$($w)*]
-            [] [] [] []
-            [$($([$field_1 $($field_2)? : $field_mod $field_ty])+)?]
-        }
-        $crate::context_impl! {
-            @impl trait
-            [$name] [ty] [this]
-            [$($g)*] [$($r)*] [$($w)*]
-            [] []
-            [$($([$field_1 $($field_2)? : $field_mod $field_ty])+)?]
-        }
-    };
-    (
-        @struct $(dyn)? [$([$attr:meta])*] [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        $($body:tt)*
-    ) => {
-        $crate::std_compile_error!("\
-            invalid context definition, allowed form is\n\
-            \n\
-            $(#[attr])* $vis $(dyn)? struct $name {\n\
-                $(dyn)? $field_1_name: $(ref | mut | const) $field_1_type,\n\
-                $(dyn)? $field_2_name: $(ref | mut | const) $field_2_type,\n\
-                ...\n\
-            }\n\
-            \n\
-        ");
-    };
-    (
-        @impl struct [static]
-        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($struct_fields:tt)*]
-        [$($ctor_args:tt)*]
-        [$($ctor_assignments:tt)*]
-        [$($struct_methods:tt)*]
-        [[dyn $($field_2:ident)? : $field_mod:ident $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::std_compile_error!($crate::std_concat!(
-            "dynamic fields in non-dynamic context are not allowed, ",
-            "consider changing 'struct' to 'dyn struct' or remove 'dyn' from field definition: '",
-            $crate::std_stringify!(dyn $($field_2)? : $field_mod $field_ty),
-            "'"
-        ));
-    };
-    (
-        @impl struct [$channel:ident]
-        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($struct_fields:tt)*]
-        [$($ctor_args:tt)*]
-        [$($ctor_assignments:tt)*]
-        [$($struct_methods:tt)*]
-        [[$field:ident : ref $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl struct [$channel] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($struct_fields)*
-                $field : *const $field_ty,
-            ]
-            [
-                $($ctor_args)*
-                $field : &$field_ty,
-            ]
-            [
-                $($ctor_assignments)*
-                $field : $field as *const $field_ty,
-            ]
-            [
-                $($struct_methods)*
-                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl struct [dyn]
-        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($struct_fields:tt)*]
-        [$($ctor_args:tt)*]
-        [$($ctor_assignments:tt)*]
-        [$($struct_methods:tt)*]
-        [[dyn $field:ident : ref $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl struct [dyn] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($struct_fields)*
-                $field : *const $field_ty,
-            ]
-            [
-                $($ctor_args)*
-                $field : &$field_ty,
-            ]
-            [
-                $($ctor_assignments)*
-                $field : $field as *const $field_ty,
-            ]
-            [
-                $($struct_methods)*
-                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl struct [$channel:ident]
-        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($struct_fields:tt)*]
-        [$($ctor_args:tt)*]
-        [$($ctor_assignments:tt)*]
-        [$($struct_methods:tt)*]
-        [[$field:ident : mut $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl struct [$channel] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($struct_fields)*
-                $field : *mut $field_ty,
-            ]
-            [
-                $($ctor_args)*
-                $field : &mut $field_ty,
-            ]
-            [
-                $($ctor_assignments)*
-                $field : $field as *mut $field_ty,
-            ]
-            [
-                $($struct_methods)*
-
-                #[allow(dead_code)]
-                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
-
-                #[allow(dead_code)]
-                $vis fn [< $field _mut >] (&mut self) -> &mut $field_ty { unsafe { &mut *self.$field } }
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl struct [dyn]
-        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($struct_fields:tt)*]
-        [$($ctor_args:tt)*]
-        [$($ctor_assignments:tt)*]
-        [$($struct_methods:tt)*]
-        [[dyn $field:ident : mut $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl struct [dyn] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($struct_fields)*
-                $field : *mut $field_ty,
-            ]
-            [
-                $($ctor_args)*
-                $field : &mut $field_ty,
-            ]
-            [
-                $($ctor_assignments)*
-                $field : $field as *mut $field_ty,
-            ]
-            [
-                $($struct_methods)*
-
-                #[allow(dead_code)]
-                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
-
-                #[allow(dead_code)]
-                $vis fn [< $field _mut >] (&mut self) -> &mut $field_ty { unsafe { &mut *self.$field } }
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl struct [$channel:ident]
-        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($struct_fields:tt)*]
-        [$($ctor_args:tt)*]
-        [$($ctor_assignments:tt)*]
-        [$($struct_methods:tt)*]
-        [[$field:ident : const $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl struct [$channel] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($struct_fields)*
-                $field : $field_ty,
-            ]
-            [
-                $($ctor_args)*
-                $field : $field_ty,
-            ]
-            [
-                $($ctor_assignments)*
-                $field,
-            ]
-            [
-                $($struct_methods)*
-                $vis fn $field (&self) -> $field_ty { self.$field }
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl struct [dyn]
-        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($struct_fields:tt)*]
-        [$($ctor_args:tt)*]
-        [$($ctor_assignments:tt)*]
-        [$($struct_methods:tt)*]
-        [[$field:ident : const $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl struct [dyn] [$name] [$([$attr])*] [$vis] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($struct_fields)*
-                $field : $field_ty,
-            ]
-            [
-                $($ctor_args)*
-                $field : $field_ty,
-            ]
-            [
-                $($ctor_assignments)*
-                $field,
-            ]
-            [
-                $($struct_methods)*
-                $vis fn $field (&self) -> $field_ty { self.$field }
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl struct [$channel:ident]
-        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($struct_fields:tt)*]
-        [$($ctor_args:tt)*]
-        [$($ctor_assignments:tt)*]
-        [$($struct_methods:tt)*]
-        [[$field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::std_compile_error!($crate::std_concat!(
-            "invalid context field '",
-            $crate::std_stringify!($field_1 $($field_2)? : $field_mod $field_ty),
-            "', allowed form is '$(dyn)? $name: $(const | ref | mut) $type'",
-        ));
-    };
-    (
-        @impl struct [$channel:ident]
-        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($struct_fields:tt)*]
-        [$($ctor_args:tt)*]
-        [$($ctor_assignments:tt)*]
-        [$($struct_methods:tt)*]
-        []
-    ) => {
-        $crate::paste_paste! {
-            $(#[$attr])*
-            $vis struct $name $($g)* $($w)* {
-                $($struct_fields)*
-            }
-
-            impl $($g)* $name $($r)* $($w)* {
-                $vis fn call<ContextCallReturnType>(
-                    $($ctor_args)*
-                    f: impl $crate::std_ops_FnOnce(&mut Self) -> ContextCallReturnType 
-                ) -> ContextCallReturnType {
-                    let mut context = Self {
-                        $($ctor_assignments)*
-                    };
-                    f(&mut context)
-                }
-
-                $($struct_methods)*
-            }
-
-            unsafe impl $($g)* Send for $name $($r)* $($w)* { }
-            unsafe impl $($g)* Sync for $name $($r)* $($w)* { }
-        }
-    };
-    (
-        @impl trait
-        [$name:ident] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($trait_impl_ref:tt)*]
-        [$($trait_impl_mut:tt)*]
-        [[$field:ident : ref $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($trait_impl_ref)*
-                if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
-                    Some($this.$field())
-                } else
-            ]
-            [
-                $($trait_impl_mut)*
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl trait
-        [$name:ident] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($trait_impl_ref:tt)*]
-        [$($trait_impl_mut:tt)*]
-        [[dyn $field:ident : ref $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($trait_impl_ref)*
-                if let Some(res) = $crate::Context::get_raw($this.$field(), $ty) {
-                    Some(res)
-                } else
-            ]
-            [
-                $($trait_impl_mut)*
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl trait
-        [$name:ident] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($trait_impl_ref:tt)*]
-        [$($trait_impl_mut:tt)*]
-        [[$field:ident : mut $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($trait_impl_ref)*
-                if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
-                    Some($this.$field())
-                } else
-            ]
-            [
-                $($trait_impl_mut)*
-                if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
-                    Some($this. [< $field _mut >] ())
-                } else
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl trait
-        [$name:ident] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($trait_impl_ref:tt)*]
-        [$($trait_impl_mut:tt)*]
-        [[dyn $field:ident : mut $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($trait_impl_ref)*
-                if let Some(res) = $crate::Context::get_raw($this.$field(), $ty) {
-                    Some(res)
-                } else
-            ]
-            [
-                $($trait_impl_mut)*
-                if let Some(res) = $crate::Context::get_mut_raw($this. [< $field _mut >] (), $ty) {
-                    Some(res)
-                } else
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl trait
-        [$name:ident] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($trait_impl_ref:tt)*]
-        [$($trait_impl_mut:tt)*]
-        [[$field:ident : const $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($trait_impl_ref)*
-                if $ty == $crate::std_any_TypeId::of::<$field_ty>() {
-                    Some(&$this.$field)
-                } else
-            ]
-            [
-                $($trait_impl_mut)*
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl trait
-        [$name:ident] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($trait_impl_ref:tt)*]
-        [$($trait_impl_mut:tt)*]
-        [[dyn $field:ident : const $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-        $crate::context_impl! {
-            @impl trait [$name] [$ty] [$this] [$($g)*] [$($r)*] [$($w)*]
-            [
-                $($trait_impl_ref)*
-                if let Some(res) = $crate::Context::get_raw(&$this.$field, $ty) {
-                    Some(res)
-                } else
-            ]
-            [
-                $($trait_impl_mut)*
-            ]
-            [$($other_fields)*]
-        }
-    };
-    (
-        @impl trait
-        [$name:ident] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($trait_impl_ref:tt)*]
-        [$($trait_impl_mut:tt)*]
-        [[$field_1:ident $($field_2:ident)? : $field_mod:ident $field_ty:ty] $($other_fields:tt)*]
-    ) => {
-    };
-    (
-        @impl trait
-        [$name:ident] [$ty:ident] [$this:ident]
-        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
-        [$($trait_impl_ref:tt)*]
-        [$($trait_impl_mut:tt)*]
-        []
-    ) => {
-        $crate::paste_paste! {
-            impl $($g)* $crate::Context for $name $($r)* $($w)* {
-                fn get_raw(&self, $ty: $crate::std_any_TypeId) -> Option<&dyn $crate::std_any_Any> {
-                    let $this = self;
-                    $($trait_impl_ref)*
-                    { None }
-                }
-
-                fn get_mut_raw(&mut self, $ty: $crate::std_any_TypeId) -> Option<&mut dyn $crate::std_any_Any> {
-                    let $this = self;
-                    $($trait_impl_mut)*
-                    { None }
-                }
-            }
-        }
-    };
-}
-
 #[cfg(docsrs)]
 pub mod example {
     //! [`context`](context) macro expansion example.
@@ -1128,8 +667,9 @@ pub mod example {
 
 #[cfg(test)]
 mod test {
-    use crate::ContextExt;
+    use crate::{ContextExt, ContextMergeMutExt};
     use core::mem::replace;
+    use macro_attr_2018::macro_attr;
 
     static_lifetime! {
         struct Context1 {
@@ -1138,6 +678,8 @@ mod test {
             c: 'c mut u32,
         }
     }
+    
+    Context!(() struct Context1 { .. });
 
     #[test]
     fn test_context_1() {
@@ -1156,73 +698,44 @@ mod test {
         assert_eq!(x, 12);
     }
 
-    context! {
-        dyn struct Context2 {
-            a: const u8,
-            b: ref u16,
-            c: mut u32,
-        }
-    }
-
     #[test]
-    fn test_context_2() {
+    fn test_context_1_const() {
         let mut x = 3;
-        let res = Context2::call(1, &2, &mut x, |context| {
+        let res = Context1Builder {
+            a: 1,
+            b: &2,
+            c: &mut x
+        }.build_and_then(|context| {
             assert_eq!(context.a(), 1u8);
             assert_eq!(context.b(), &2u16);
-            assert_eq!(replace(context.c_mut(), 12), 3u32);
-            assert_eq!(context.get::<u32>(), &12);
+            assert_eq!(context.c(), &3u32);
             "res"
         });
         assert_eq!(res, "res");
-        assert_eq!(x, 12);
+        assert_eq!(x, 3);
     }
 
-    #[derive(Debug, Clone, Copy)]
-    struct PrivStr;
-
-    context! {
-        dyn struct Context3 {
-            a: const PrivStr,
-            b: ref u16,
-            c: mut u32,
-        }
-    }
-
-    #[test]
-    fn test_context_3() {
-        let mut x = 3;
-        let res = Context3::call(PrivStr, &2, &mut x, |context| {
-            let _ = context.a();
-            assert_eq!(context.b(), &2u16);
-            assert_eq!(replace(context.c_mut(), 12), 3u32);
-            assert_eq!(context.get::<u32>(), &12);
-            assert_eq!(context.get::<u16>(), &2);
-            "res"
-        });
-        assert_eq!(res, "res");
-        assert_eq!(x, 12);
-    }
-
-    context! {
-        dyn struct Context4<T> where T: Copy + 'static {
-            dyn c_3: mut Context3,
-            b: const T
-        }
+    macro_attr! {
+        #[derive(Debug, Clone, Copy, Context!)]
+        struct PrivStr;
     }
 
     #[test]
     fn test_context_4() {
         let mut x = 3;
-        let res = Context3::call(PrivStr, &2, &mut x, |context| {
-            Context4::call(context, 7u8, |context| {
-                assert_eq!(context.b(), 7);
-                assert_eq!(replace(context.get_mut::<u32>(), 9), 3);
-                assert_eq!(context.get::<u8>(), &7);
+        let res = Context1Builder {
+            a: 1,
+            b: &2,
+            c: &mut x
+        }.build_and_then(|context| {
+            context.merge_mut_and_then(|context| {
+                assert_eq!(context.get::<Context1>().a(), 1u8);
+                assert_eq!(context.get::<Context1>().b(), &2u16);
+                assert_eq!(replace(context.get_mut::<Context1>().c_mut(), 12), 3u32);
                 "res"
-            })
+            }, &mut PrivStr)
         });
         assert_eq!(res, "res");
-        assert_eq!(x, 9);
+        assert_eq!(x, 12);
     }
 }

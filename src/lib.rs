@@ -80,7 +80,7 @@ pub use paste::paste as paste_paste;
 /// # }
 /// ```
 /// 
-/// For using `&str` instead of `String` the `free_lifetimes!` macro can be used:
+/// For using `&str` instead of `String` the [`free_lifetimes!`](free_lifetimes) macro can be used:
 /// ```rust
 /// # mod call_back {
 /// #     use dyn_context::Context;
@@ -125,8 +125,8 @@ pub use paste::paste as paste_paste;
 /// # }
 /// ```
 /// 
-/// Because the `free_lifetimes` macro cannot be used similtiniosly with `macro_attr`,
-/// standalone `Context` macro used here.
+/// Because the `free_lifetimes!` macro cannot be used similtiniosly with [`macro_attr!`](https://docs.rs/macro-attr-2018/*/macro_attr_2018/macro.macro_attr.html),
+/// the `Context!` macro deriving `Context` trait implementation used here in standalone mode.
 pub trait Context: 'static {
     /// Borrows shareable data entry.
     ///
@@ -353,9 +353,9 @@ macro_rules! Context {
 /// (Such situations could occur because Rust does not support existential types
 /// with infinite parameters list.)
 ///
-/// The `free_lifetimes` macro allows to "compress" several lifetimes into a one.
+/// The `free_lifetimes!` macro allows to "compress" several lifetimes into a one.
 ///
-/// For example, using `context` you can pack together two `str` references and use them with
+/// For example, you can pack together two `str` references and use them with
 /// a code, requiring a `'static` type:
 /// ```rust
 /// # use dyn_context::{free_lifetimes};
@@ -422,11 +422,11 @@ macro_rules! free_lifetimes_impl {
         $($body:tt)*
     ) => {
         $crate::std_compile_error!("\
-            invalid static lifetime struct definition, allowed form is\n\
+            invalid free lifetimes struct definition, allowed form is\n\
             \n\
             $(#[attr])* $vis struct $name {\n\
-                $field_1_name: $('field_lt ref | 'field_lt mut | const) $field_1_type,\n\
-                $field_2_name: $('field_lt ref | 'field_lt mut | const) $field_2_type,\n\
+                $field_1_name: $('field_1_lt ref | 'field_1_lt mut | const) $field_1_type,\n\
+                $field_2_name: $('field_2_lt ref | 'field_2_lt mut | const) $field_2_type,\n\
                 ...\n\
             }\n\
             \n\
@@ -554,7 +554,7 @@ macro_rules! free_lifetimes_impl {
         [[$field:ident : $($field_lt:lifetime)? $field_mod:ident $field_ty:ty] $($other_fields:tt)*]
     ) => {
         $crate::std_compile_error!($crate::std_concat!(
-            "invalid static lifetime struct field '",
+            "invalid free lifetimes struct field '",
             $crate::std_stringify!($field : $($field_lt)? $field_mod $field_ty),
             "', allowed form is '$name: $('lt ref | 'lt mut | const) $type'",
         ));
@@ -627,22 +627,17 @@ macro_rules! free_lifetimes_impl {
 
 #[cfg(docsrs)]
 pub mod example {
-    //! [`context`](context) macro expansion example.
+    //! [`free_lifetimes`](free_lifetimes) macro expansion example.
     //!
     //! ```ignore
-    //! context! {
-    //!     pub struct StrData {
-    //!         r: ref str,
-    //!     }
-    //! }
-    //!
-    //! context! {
-    //!     pub dyn struct ExampleContext {
-    //!         data: ref Data,
-    //!         str_data: mut StrData,
+    //! free_lifetimes! {
+    //!     pub struct FreeLifetimesStruct {
+    //!         data: 'data ref Data,
+    //!         str_data: 'str_data ref str,
     //!         id: const usize,
     //!     }
     //! }
+    //!
     //! ```
 
     pub struct Data {
@@ -650,16 +645,10 @@ pub mod example {
         pub y: i16
     }
 
-    context! {
-        pub struct StrData {
-            r: ref str,
-        }
-    }
-
-    context! {
-        pub dyn struct ExampleContext {
-            data: ref Data,
-            str_data: mut StrData,
+    free_lifetimes! {
+        pub struct FreeLifetimesStruct {
+            data: 'data ref Data,
+            str_data: 'str_data ref str,
             id: const usize,
         }
     }

@@ -637,7 +637,7 @@ pub mod example {
     //! ```ignore
     //! free_lifetimes! {
     //!     pub struct FreeLifetimesStruct {
-    //!         data: 'data ref Data,
+    //!         data: 'data mut Data,
     //!         str_data: 'str_data ref str,
     //!         id: const usize,
     //!     }
@@ -652,7 +652,7 @@ pub mod example {
 
     free_lifetimes! {
         pub struct FreeLifetimesStruct {
-            data: 'data ref Data,
+            data: 'data mut Data,
             str_data: 'str_data ref str,
             id: const usize,
         }

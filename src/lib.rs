@@ -130,8 +130,9 @@ pub use paste::paste as paste_paste;
 /// # }
 /// ```
 /// 
-/// Because the `free_lifetimes!` macro cannot be used similtiniosly with [`macro_attr!`](https://docs.rs/macro-attr-2018/*/macro_attr_2018/macro.macro_attr.html),
-/// the `Context!` macro deriving `Context` trait implementation used here in standalone mode.
+/// Because the [`free_lifetimes!`](free_lifetimes) macro cannot be used simultaneously
+/// with [`macro_attr!`](https://docs.rs/macro-attr-2018/*/macro_attr_2018/macro.macro_attr.html),
+/// the [`Context!`](macro@Context) macro deriving `Context` trait implementation used here in standalone mode.
 pub trait Context: 'static {
     /// Borrows shareable data entry.
     ///
@@ -231,11 +232,13 @@ impl Context for ContextSumMut {
     }
 }
 
-pub trait ContextMergeExt {
+/// Provides method allowing combine two read-only [`Context`](trait@Context)s into one.
+pub trait ContextRef {
+    /// Merges two contexts into one and calls provided function with the combined context.
     fn merge_and_then<T>(self, f: impl FnOnce(&dyn Context) -> T, other: &dyn Context) -> T;
 }
 
-impl<C: Context> ContextMergeExt for &C {
+impl<C: Context> ContextRef for &C {
     fn merge_and_then<T>(self, f: impl FnOnce(&dyn Context) -> T, other: &dyn Context) -> T {
         ContextSumBuilder {
             a: self,
@@ -244,7 +247,7 @@ impl<C: Context> ContextMergeExt for &C {
     }
 }
 
-impl ContextMergeExt for &dyn Context {
+impl ContextRef for &dyn Context {
     fn merge_and_then<T>(self, f: impl FnOnce(&dyn Context) -> T, other: &dyn Context) -> T {
         ContextSumBuilder {
             a: self,
@@ -253,11 +256,13 @@ impl ContextMergeExt for &dyn Context {
     }
 }
 
-pub trait ContextMergeMutExt {
+/// Provides method allowing combine two [`Context`](trait@Context)s into one.
+pub trait ContextRefMut {
+    /// Merges two contexts into one and calls provided function with the combined context.
     fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn Context) -> T, other: &mut dyn Context) -> T;
 }
 
-impl<C: Context> ContextMergeMutExt for &mut C {
+impl<C: Context> ContextRefMut for &mut C {
     fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn Context) -> T, other: &mut dyn Context) -> T {
         ContextSumMutBuilder {
             a: self,
@@ -266,7 +271,7 @@ impl<C: Context> ContextMergeMutExt for &mut C {
     }
 }
 
-impl ContextMergeMutExt for &mut dyn Context {
+impl ContextRefMut for &mut dyn Context {
     fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn Context) -> T, other: &mut dyn Context) -> T {
         ContextSumBuilder {
             a: self,
@@ -603,6 +608,8 @@ macro_rules! free_lifetimes_impl {
             }
 
             impl $($builder_g)* [< $name Builder >] $($builder_r)* $($builder_w)* {
+                /// Converts regular structure into a special structure with "erased" field lifetimes
+                /// and passes result to provided function.
                 $vis fn build_and_then<FreeLifetimesStructBuildReturnType>(
                     &mut self,
                     f: impl $crate::std_ops_FnOnce(&mut $name) -> FreeLifetimesStructBuildReturnType 
@@ -661,7 +668,7 @@ pub mod example {
 
 #[cfg(test)]
 mod test {
-    use crate::{ContextExt, ContextMergeMutExt};
+    use crate::{ContextExt, ContextRefMut};
     use core::mem::replace;
     use macro_attr_2018::macro_attr;
 

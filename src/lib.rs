@@ -1,4 +1,3 @@
-#![cfg_attr(feature="nightly", feature(external_doc))]
 #![cfg_attr(feature="nightly", feature(never_type))]
 #![deny(warnings)]
 
@@ -9,7 +8,7 @@
 
 #![no_std]
 
-#[doc(include="../README.md")]
+#[doc=include_str!("../README.md")]
 #[cfg(feature="nightly")]
 type _DocTestReadme = ();
 

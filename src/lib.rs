@@ -8,7 +8,7 @@
 
 #![no_std]
 
-#[doc=include_str!("../README.md")]
+#[cfg_attr(feature="nightly", doc=include_str!("../README.md"))]
 #[cfg(feature="nightly")]
 type _DocTestReadme = ();
 

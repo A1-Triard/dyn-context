@@ -8,9 +8,8 @@
 
 #![no_std]
 
-#[cfg_attr(feature="nightly", doc=include_str!("../README.md"))]
 #[cfg(feature="nightly")]
-type _DocTestReadme = ();
+include!("doc_test_readme.include");
 
 use core::any::{TypeId, Any, type_name};
 

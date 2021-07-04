@@ -11,8 +11,6 @@
 #[cfg(feature="nightly")]
 include!("doc_test_readme.include");
 
-use core::any::{TypeId, Any, type_name};
-
 #[doc(hidden)]
 pub use core::any::Any as std_any_Any;
 #[doc(hidden)]
@@ -34,6 +32,8 @@ pub use generics::parse as generics_parse;
 #[doc(hidden)]
 pub use paste::paste as paste_paste;
 
+use core::any::{TypeId, Any, type_name};
+
 /// A service provider pattern implementation = associated read-only container with type as a key.
 ///
 /// Useful for building complex systems with callbacks without generic parameters.
@@ -42,123 +42,123 @@ pub use paste::paste as paste_paste;
 ///
 /// ```rust
 /// mod call_back {
-///     use dyn_context::Context;
+///     use dyn_state::State;
 ///
 ///     pub struct CallBack {
-///         callback: Option<fn(context: &mut dyn Context)>
+///         callback: Option<fn(state: &mut dyn State)>
 ///     }
 ///
 ///     impl CallBack {
 ///         pub fn new() -> Self { CallBack { callback: None } }
 ///
-///         pub fn set_callback(&mut self, callback: fn(context: &mut dyn Context)) {
+///         pub fn set_callback(&mut self, callback: fn(state: &mut dyn State)) {
 ///             self.callback.replace(callback);
 ///         }
 ///
-///         pub fn call_back(&self, context: &mut dyn Context) {
-///             self.callback.map(|callback| callback(context));
+///         pub fn call_back(&self, state: &mut dyn State) {
+///             self.callback.map(|callback| callback(state));
 ///         }
 ///     }
 /// }
 ///
 /// use call_back::CallBack;
-/// use dyn_context::{Context, ContextExt};
+/// use dyn_state::{State, StateExt};
 /// use macro_attr_2018::macro_attr;
 /// use std::convert::Into;
 ///
 /// macro_attr! {
-///     #[derive(Context!)]
-///     struct PrintContext {
+///     #[derive(State!)]
+///     struct PrintState {
 ///          value: String
 ///     }
 /// }
 ///
 /// # fn main() {
 /// let mut call_back = CallBack::new();
-/// call_back.set_callback(|context| {
-///     let print: &PrintContext = context.get();
+/// call_back.set_callback(|state| {
+///     let print: &PrintState = state.get();
 ///     println!("{}", &print.value);
 /// });
-/// call_back.call_back(&mut PrintContext { value: "Hello, world!".into() });
+/// call_back.call_back(&mut PrintState { value: "Hello, world!".into() });
 /// # }
 /// ```
 /// 
 /// For using `&str` instead of `String` the [`free_lifetimes!`](free_lifetimes) macro can be used:
 /// ```rust
 /// # mod call_back {
-/// #     use dyn_context::Context;
+/// #     use dyn_state::State;
 /// # 
 /// #     pub struct CallBack {
-/// #         callback: Option<fn(context: &mut dyn Context)>
+/// #         callback: Option<fn(state: &mut dyn State)>
 /// #     }
 /// # 
 /// #     impl CallBack {
 /// #         pub fn new() -> Self { CallBack { callback: None } }
 /// # 
-/// #         pub fn set_callback(&mut self, callback: fn(context: &mut dyn Context)) {
+/// #         pub fn set_callback(&mut self, callback: fn(state: &mut dyn State)) {
 /// #             self.callback.replace(callback);
 /// #         }
 /// # 
-/// #         pub fn call_back(&self, context: &mut dyn Context) {
-/// #             self.callback.map(|callback| callback(context));
+/// #         pub fn call_back(&self, state: &mut dyn State) {
+/// #             self.callback.map(|callback| callback(state));
 /// #         }
 /// #     }
 /// # }
 /// # 
-/// use dyn_context::{free_lifetimes, Context, ContextExt};
+/// use dyn_state::{free_lifetimes, State, StateExt};
 /// use call_back::CallBack;
 ///
 /// free_lifetimes! {
-///     struct PrintContext {
+///     struct PrintState {
 ///         value: 'value ref str
 ///     }
 /// }
 /// 
-/// Context!(() struct PrintContext { .. });
+/// State!(() struct PrintState { .. });
 ///
 /// # fn main() {
 /// let mut call_back = CallBack::new();
-/// call_back.set_callback(|context| {
-///     let print: &PrintContext = context.get();
+/// call_back.set_callback(|state| {
+///     let print: &PrintState = state.get();
 ///     println!("{}", print.value());
 /// });
-/// PrintContextBuilder {
+/// PrintStateBuilder {
 ///     value: "Hello, world!"
-/// }.build_and_then(|context| call_back.call_back(context));
+/// }.build_and_then(|state| call_back.call_back(state));
 /// # }
 /// ```
 /// 
 /// Because the [`free_lifetimes!`](free_lifetimes) macro cannot be used simultaneously
 /// with [`macro_attr!`](https://docs.rs/macro-attr-2018/*/macro_attr_2018/macro.macro_attr.html),
-/// the [`Context!`](macro@Context) macro deriving `Context` trait implementation used here in standalone mode.
-pub trait Context: 'static {
+/// the [`State!`](macro@State) macro deriving `State` trait implementation used here in standalone mode.
+pub trait State: 'static {
     /// Borrows shareable data entry.
     ///
-    /// Prefer high-level [`get`](ContextExt::get) wrap.
+    /// Prefer high-level [`get`](StateExt::get) wrap.
     fn get_raw(&self, ty: TypeId) -> Option<&dyn Any>;
 
     /// Borrows mutable data entry.
     ///
-    /// Prefer high-level [`get_mut`](ContextExt::get_mut) wrap.
+    /// Prefer high-level [`get_mut`](StateExt::get_mut) wrap.
     fn get_mut_raw(&mut self, ty: TypeId) -> Option<&mut dyn Any>;
 }
 
 #[cfg(feature="nightly")]
-impl Context for ! {
+impl State for ! {
     fn get_raw(&self, _ty: TypeId) -> Option<&dyn Any> { Some(self) }
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { Some(self) }
 }
 
-impl Context for () {
+impl State for () {
     fn get_raw(&self, _ty: TypeId) -> Option<&dyn Any> { None }
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { None }
 }
 
-/// Extends [`Context`](trait@Context) with methods that make it easier to access the content of the context.
-pub trait ContextExt: Context {
+/// Extends [`State`](trait@State) with methods that make it easier to access the content of the state.
+pub trait StateExt: State {
     /// Borrows shareable data reference.
     ///
-    /// Panics if the context does not provide requested type.
+    /// Panics if the state does not provide requested type.
     fn get<T: 'static>(&self) -> &T {
         self.get_raw(TypeId::of::<T>())
             .unwrap_or_else(|| panic!("{} required", type_name::<T>()))
@@ -167,7 +167,7 @@ pub trait ContextExt: Context {
 
     /// Borrows mutable data reference.
     ///
-    /// Panics if the context does not provide requested type.
+    /// Panics if the state does not provide requested type.
     fn get_mut<T: 'static>(&mut self) -> &mut T {
         self.get_mut_raw(TypeId::of::<T>())
             .unwrap_or_else(|| panic!("{} required", type_name::<T>()))
@@ -175,16 +175,16 @@ pub trait ContextExt: Context {
     }
 }
 
-impl<T: Context + ?Sized> ContextExt for T { }
+impl<T: State + ?Sized> StateExt for T { }
 
 free_lifetimes! {
-    struct ContextSum {
-        a: 'a ref dyn Context,
-        b: 'b ref dyn Context,
+    struct StateSum {
+        a: 'a ref dyn State,
+        b: 'b ref dyn State,
     }
 }
 
-impl Context for ContextSum {
+impl State for StateSum {
     fn get_raw(&self, ty: TypeId) -> Option<&dyn Any> {
         if let Some(r) = self.a().get_raw(ty) {
             Some(r)
@@ -201,13 +201,13 @@ impl Context for ContextSum {
 }
 
 free_lifetimes! {
-    struct ContextSumMut {
-        a: 'a mut dyn Context,
-        b: 'b mut dyn Context,
+    struct StateSumMut {
+        a: 'a mut dyn State,
+        b: 'b mut dyn State,
     }
 }
 
-impl Context for ContextSumMut {
+impl State for StateSumMut {
     fn get_raw(&self, ty: TypeId) -> Option<&dyn Any> {
         if let Some(r) = self.a().get_raw(ty) {
             Some(r)
@@ -230,48 +230,48 @@ impl Context for ContextSumMut {
     }
 }
 
-/// Provides method allowing combine two read-only [`Context`](trait@Context)s into one.
-pub trait ContextRef {
-    /// Merges two contexts into one and calls provided function with the combined context.
-    fn merge_and_then<T>(self, f: impl FnOnce(&dyn Context) -> T, other: &dyn Context) -> T;
+/// Provides method allowing combine two read-only [`State`](trait@State)s into one.
+pub trait StateRef {
+    /// Merges two states into one and calls provided function with the combined state.
+    fn merge_and_then<T>(self, f: impl FnOnce(&dyn State) -> T, other: &dyn State) -> T;
 }
 
-impl<C: Context> ContextRef for &C {
-    fn merge_and_then<T>(self, f: impl FnOnce(&dyn Context) -> T, other: &dyn Context) -> T {
-        ContextSumBuilder {
+impl<C: State> StateRef for &C {
+    fn merge_and_then<T>(self, f: impl FnOnce(&dyn State) -> T, other: &dyn State) -> T {
+        StateSumBuilder {
             a: self,
             b: other,
         }.build_and_then(|x| f(x))
     }
 }
 
-impl ContextRef for &dyn Context {
-    fn merge_and_then<T>(self, f: impl FnOnce(&dyn Context) -> T, other: &dyn Context) -> T {
-        ContextSumBuilder {
+impl StateRef for &dyn State {
+    fn merge_and_then<T>(self, f: impl FnOnce(&dyn State) -> T, other: &dyn State) -> T {
+        StateSumBuilder {
             a: self,
             b: other,
         }.build_and_then(|x| f(x))
     }
 }
 
-/// Provides method allowing combine two [`Context`](trait@Context)s into one.
-pub trait ContextRefMut {
-    /// Merges two contexts into one and calls provided function with the combined context.
-    fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn Context) -> T, other: &mut dyn Context) -> T;
+/// Provides method allowing combine two [`State`](trait@State)s into one.
+pub trait StateRefMut {
+    /// Merges two states into one and calls provided function with the combined state.
+    fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn State) -> T, other: &mut dyn State) -> T;
 }
 
-impl<C: Context> ContextRefMut for &mut C {
-    fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn Context) -> T, other: &mut dyn Context) -> T {
-        ContextSumMutBuilder {
+impl<C: State> StateRefMut for &mut C {
+    fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn State) -> T, other: &mut dyn State) -> T {
+        StateSumMutBuilder {
             a: self,
             b: other,
         }.build_and_then(|x| f(x))
     }
 }
 
-impl ContextRefMut for &mut dyn Context {
-    fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn Context) -> T, other: &mut dyn Context) -> T {
-        ContextSumBuilder {
+impl StateRefMut for &mut dyn State {
+    fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn State) -> T, other: &mut dyn State) -> T {
+        StateSumBuilder {
             a: self,
             b: other,
         }.build_and_then(|x| f(x))
@@ -279,40 +279,40 @@ impl ContextRefMut for &mut dyn Context {
 }
 
 /// A [macro attribute](https://crates.io/crates/macro-attr-2018)
-/// deriving trivial [`Context`](trait@Context) implementation.
-/// A trivial-implemented context is a context containing itself only.
+/// deriving trivial [`State`](trait@State) implementation.
+/// A trivial-implemented state is a state containing itself only.
 ///
 /// # Examples
 ///
 /// ```rust
-/// # use dyn_context::{Context, ContextExt};
+/// # use dyn_state::{State, StateExt};
 /// # use macro_attr_2018::macro_attr;
 /// #
 /// macro_attr! {
-///     #[derive(Context!)]
+///     #[derive(State!)]
 ///     struct SomeData {
 ///         data: u16,
 ///     }
 /// }
 ///
-/// fn get_data_from_context(context: &dyn Context) -> u16 {
-///     let some_data: &SomeData = context.get();
+/// fn get_data_from_state(state: &dyn State) -> u16 {
+///     let some_data: &SomeData = state.get();
 ///     some_data.data
 /// }
 ///
 /// # fn main() {
 /// let some_data = SomeData { data: 7 };
-/// let data_from_context = get_data_from_context(&some_data);
-/// assert_eq!(data_from_context, 7);
+/// let data_from_state = get_data_from_state(&some_data);
+/// assert_eq!(data_from_state, 7);
 /// # }
 #[macro_export]
-macro_rules! Context {
+macro_rules! State {
     (
         ()
         $vis:vis struct $name:ident $($body:tt)*
     ) => {
         $crate::generics_parse! {
-            $crate::Context { @impl [$name] } $($body)*
+            $crate::State { @impl [$name] } $($body)*
         }
     };
     (
@@ -320,13 +320,13 @@ macro_rules! Context {
         $vis:vis enum $name:ident $($body:tt)*
     ) => {
         $crate::generics_parse! {
-            $crate::Context { @impl [$name] } $($body)*
+            $crate::State { @impl [$name] } $($body)*
         }
     };
     (
         @impl [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
     ) => {
-        impl $($g)* $crate::Context for $name $($r)* $($w)* {
+        impl $($g)* $crate::State for $name $($r)* $($w)* {
             fn get_raw(
                 &self,
                 ty: $crate::std_any_TypeId
@@ -366,7 +366,7 @@ macro_rules! Context {
 /// For example, you can pack together two `str` references and use them with
 /// a code, requiring a `'static` type:
 /// ```rust
-/// # use dyn_context::{free_lifetimes};
+/// # use dyn_state::{free_lifetimes};
 /// #
 /// free_lifetimes! {
 ///     struct DoubleStr {
@@ -666,31 +666,31 @@ pub mod example {
 
 #[cfg(test)]
 mod test {
-    use crate::{ContextExt, ContextRefMut};
+    use crate::{StateExt, StateRefMut};
     use core::mem::replace;
     use macro_attr_2018::macro_attr;
 
     free_lifetimes! {
-        struct Context1 {
+        struct State1 {
             a: const u8,
             b: 'b ref u16,
             c: 'c mut u32,
         }
     }
     
-    Context!(() struct Context1 { .. });
+    State!(() struct State1 { .. });
 
     #[test]
-    fn test_context_1() {
+    fn test_state_1() {
         let mut x = 3;
-        let res = Context1Builder {
+        let res = State1Builder {
             a: 1,
             b: &2,
             c: &mut x
-        }.build_and_then(|context| {
-            assert_eq!(context.a(), 1u8);
-            assert_eq!(context.b(), &2u16);
-            assert_eq!(replace(context.c_mut(), 12), 3u32);
+        }.build_and_then(|state| {
+            assert_eq!(state.a(), 1u8);
+            assert_eq!(state.b(), &2u16);
+            assert_eq!(replace(state.c_mut(), 12), 3u32);
             "res"
         });
         assert_eq!(res, "res");
@@ -698,16 +698,16 @@ mod test {
     }
 
     #[test]
-    fn test_context_1_const() {
+    fn test_state_1_const() {
         let mut x = 3;
-        let res = Context1Builder {
+        let res = State1Builder {
             a: 1,
             b: &2,
             c: &mut x
-        }.build_and_then(|context| {
-            assert_eq!(context.a(), 1u8);
-            assert_eq!(context.b(), &2u16);
-            assert_eq!(context.c(), &3u32);
+        }.build_and_then(|state| {
+            assert_eq!(state.a(), 1u8);
+            assert_eq!(state.b(), &2u16);
+            assert_eq!(state.c(), &3u32);
             "res"
         });
         assert_eq!(res, "res");
@@ -715,22 +715,22 @@ mod test {
     }
 
     macro_attr! {
-        #[derive(Debug, Clone, Copy, Context!)]
+        #[derive(Debug, Clone, Copy, State!)]
         struct PrivStr;
     }
 
     #[test]
-    fn test_context_4() {
+    fn test_state_4() {
         let mut x = 3;
-        let res = Context1Builder {
+        let res = State1Builder {
             a: 1,
             b: &2,
             c: &mut x
-        }.build_and_then(|context| {
-            context.merge_mut_and_then(|context| {
-                assert_eq!(context.get::<Context1>().a(), 1u8);
-                assert_eq!(context.get::<Context1>().b(), &2u16);
-                assert_eq!(replace(context.get_mut::<Context1>().c_mut(), 12), 3u32);
+        }.build_and_then(|state| {
+            state.merge_mut_and_then(|state| {
+                assert_eq!(state.get::<State1>().a(), 1u8);
+                assert_eq!(state.get::<State1>().b(), &2u16);
+                assert_eq!(replace(state.get_mut::<State1>().c_mut(), 12), 3u32);
                 "res"
             }, &mut PrivStr)
         });

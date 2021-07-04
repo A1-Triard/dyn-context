@@ -180,11 +180,14 @@ pub trait StateExt: State {
 
 impl<T: State + ?Sized> StateExt for T { }
 
+#[cfg(feature="nightly")]
 #[thread_local]
 static APP_STATE: RefCell<Option<*mut dyn State>> = RefCell::new(None);
 
+#[cfg(feature="nightly")]
 pub struct AppState(());
 
+#[cfg(feature="nightly")]
 impl AppState {
     pub fn set_and_then<T>(f: impl FnOnce() -> T, state: &mut dyn State) -> T {
         let _app_state = AppState::new(state);
@@ -202,6 +205,7 @@ impl AppState {
     }
 }
 
+#[cfg(feature="nightly")]
 impl Drop for AppState {
     fn drop(&mut self) {
         APP_STATE.borrow_mut().take();

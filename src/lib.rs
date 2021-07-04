@@ -34,6 +34,7 @@ pub use generics::parse as generics_parse;
 pub use paste::paste as paste_paste;
 
 use core::any::{TypeId, Any, type_name};
+#[cfg(feature="nightly")]
 use core::cell::RefCell;
 
 /// A service provider pattern implementation = associated read-only container with type as a key.

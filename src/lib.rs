@@ -185,16 +185,22 @@ impl<T: State + ?Sized> StateExt for T { }
 #[thread_local]
 static APP_STATE: RefCell<Option<*mut dyn State>> = RefCell::new(None);
 
+/// Allows safely store state in thread-local storage.
 #[cfg(feature="nightly")]
 pub struct AppState(());
 
 #[cfg(feature="nightly")]
 impl AppState {
+    /// Store the state into a thread-local storage and call the provided function.
+    /// During the function execution the state is accessible through the [`AppState::with`] method.
     pub fn set_and_then<T>(f: impl FnOnce() -> T, state: &mut dyn State) -> T {
         let _app_state = AppState::new(state);
         f()
     }
 
+    /// Get state from a thread-local storage. If this method is call outside of
+    /// [`AppState::set_and_then`] execution context, state is not accessible, and
+    /// the method panics.
     pub fn with<T>(f: impl FnOnce(&mut dyn State) -> T) -> T {
         let state = APP_STATE.borrow_mut().expect("AppState required");
         unsafe { f(&mut *state) }

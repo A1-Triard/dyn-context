@@ -1,6 +1,6 @@
 # dyn-context
 
-This crate provides simple mechanism for lifetimes and generics safely erasing.
+This crate provides simple mechanism for safely erasing of 1) lifetimes, 2) generics, and 3) function arguments.
 
 1. Erasing lifetimes.
 
@@ -16,50 +16,52 @@ This crate provides simple mechanism for lifetimes and generics safely erasing.
 2. Erasing generics.
 
    There are many reasons, why generics could be not a best choice in some concrete situation.
-   This library provides `Context` trait, which may be helpful in such cases.
+   This library provides `State` trait, which may be helpful in such cases.
+   
+3. Erasing function parameters.
 
 Combining both mechanics (lifetimes compression and dynamic context trait)
 allows to build complex systems with callbacks:
 ```rust
 mod call_back {
-    use dyn_context::Context;
+    use dyn_context::State;
 
     pub struct CallBack {
-        callback: Option<fn(context: &mut dyn Context)>
+        callback: Option<fn(state: &mut dyn State)>
     }
 
     impl CallBack {
         pub fn new() -> Self { CallBack { callback: None } }
 
-        pub fn set_callback(&mut self, callback: fn(context: &mut dyn Context)) {
+        pub fn set_callback(&mut self, callback: fn(state: &mut dyn State)) {
             self.callback.replace(callback);
         }
 
-        pub fn call_back(&self, context: &mut dyn Context) {
-            self.callback.map(|callback| callback(context));
+        pub fn call_back(&self, state: &mut dyn State) {
+            self.callback.map(|callback| callback(state));
         }
     }
 }
 
-use dyn_context::{free_lifetimes, Context, ContextExt};
+use dyn_context::{free_lifetimes, State, StateExt};
 use call_back::CallBack;
 
 free_lifetimes! {
-    struct PrintContext {
+    struct PrintState {
         value: 'value ref str
     }
 }
 
-Context!(() struct PrintContext { .. });
+State!(() struct PrintState { .. });
 
 fn main() {
     let mut call_back = CallBack::new();
-    call_back.set_callback(|context| {
-        let print: &PrintContext = context.get();
+    call_back.set_callback(|state| {
+        let print: &PrintState = state.get();
         println!("{}", print.value());
     });
-    PrintContextBuilder {
+    PrintStateBuilder {
         value: "Hello, world!"
-    }.build_and_then(|context| call_back.call_back(context));
+    }.build_and_then(|state| call_back.call_back(state));
 }
 ```

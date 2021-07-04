@@ -1,4 +1,5 @@
 #![cfg_attr(feature="nightly", feature(never_type))]
+#![cfg_attr(feature="nightly", feature(thread_local))]
 #![deny(warnings)]
 
 //! **Crate features**
@@ -33,6 +34,7 @@ pub use generics::parse as generics_parse;
 pub use paste::paste as paste_paste;
 
 use core::any::{TypeId, Any, type_name};
+use core::cell::RefCell;
 
 /// A service provider pattern implementation = associated read-only container with type as a key.
 ///
@@ -42,7 +44,7 @@ use core::any::{TypeId, Any, type_name};
 ///
 /// ```rust
 /// mod call_back {
-///     use dyn_state::State;
+///     use dyn_context::State;
 ///
 ///     pub struct CallBack {
 ///         callback: Option<fn(state: &mut dyn State)>
@@ -62,7 +64,7 @@ use core::any::{TypeId, Any, type_name};
 /// }
 ///
 /// use call_back::CallBack;
-/// use dyn_state::{State, StateExt};
+/// use dyn_context::{State, StateExt};
 /// use macro_attr_2018::macro_attr;
 /// use std::convert::Into;
 ///
@@ -86,7 +88,7 @@ use core::any::{TypeId, Any, type_name};
 /// For using `&str` instead of `String` the [`free_lifetimes!`](free_lifetimes) macro can be used:
 /// ```rust
 /// # mod call_back {
-/// #     use dyn_state::State;
+/// #     use dyn_context::State;
 /// # 
 /// #     pub struct CallBack {
 /// #         callback: Option<fn(state: &mut dyn State)>
@@ -105,7 +107,7 @@ use core::any::{TypeId, Any, type_name};
 /// #     }
 /// # }
 /// # 
-/// use dyn_state::{free_lifetimes, State, StateExt};
+/// use dyn_context::{free_lifetimes, State, StateExt};
 /// use call_back::CallBack;
 ///
 /// free_lifetimes! {
@@ -173,9 +175,38 @@ pub trait StateExt: State {
             .unwrap_or_else(|| panic!("{} required", type_name::<T>()))
             .downcast_mut::<T>().expect("invalid cast")
     }
+
 }
 
 impl<T: State + ?Sized> StateExt for T { }
+
+#[thread_local]
+static APP_STATE: RefCell<Option<*mut dyn State>> = RefCell::new(None);
+
+pub struct AppState(());
+
+impl AppState {
+    pub fn set_and_then<T>(f: impl FnOnce() -> T, state: &mut dyn State) -> T {
+        let _app_state = AppState::new(state);
+        f()
+    }
+
+    pub fn with<T>(f: impl FnOnce(&mut dyn State) -> T) -> T {
+        let state = APP_STATE.borrow_mut().expect("AppState required");
+        unsafe { f(&mut *state) }
+    }
+
+    fn new(state: &mut dyn State) -> AppState {
+        APP_STATE.borrow_mut().replace(state as *mut _);
+        AppState(())
+    }
+}
+
+impl Drop for AppState {
+    fn drop(&mut self) {
+        APP_STATE.borrow_mut().take();
+    }
+}
 
 free_lifetimes! {
     struct StateSum {
@@ -285,7 +316,7 @@ impl StateRefMut for &mut dyn State {
 /// # Examples
 ///
 /// ```rust
-/// # use dyn_state::{State, StateExt};
+/// # use dyn_context::{State, StateExt};
 /// # use macro_attr_2018::macro_attr;
 /// #
 /// macro_attr! {
@@ -366,7 +397,7 @@ macro_rules! State {
 /// For example, you can pack together two `str` references and use them with
 /// a code, requiring a `'static` type:
 /// ```rust
-/// # use dyn_state::{free_lifetimes};
+/// # use dyn_context::{free_lifetimes};
 /// #
 /// free_lifetimes! {
 ///     struct DoubleStr {
@@ -666,7 +697,7 @@ pub mod example {
 
 #[cfg(test)]
 mod test {
-    use crate::{StateExt, StateRefMut};
+    use crate::{StateExt, StateRefMut, AppState};
     use core::mem::replace;
     use macro_attr_2018::macro_attr;
 
@@ -734,6 +765,26 @@ mod test {
                 "res"
             }, &mut PrivStr)
         });
+        assert_eq!(res, "res");
+        assert_eq!(x, 12);
+    }
+
+    #[test]
+    fn app_state() {
+        let mut x = 3;
+        let res = State1Builder {
+            a: 1,
+            b: &2,
+            c: &mut x
+        }.build_and_then(|state| AppState::set_and_then(|| {
+            AppState::with(|state| {
+                let state: &mut State1 = state.get_mut();
+                assert_eq!(state.a(), 1u8);
+                assert_eq!(state.b(), &2u16);
+                assert_eq!(replace(state.c_mut(), 12), 3u32);
+                "res"
+            })
+        }, state));
         assert_eq!(res, "res");
         assert_eq!(x, 12);
     }

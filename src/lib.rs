@@ -34,8 +34,6 @@ pub use generics::parse as generics_parse;
 pub use paste::paste as paste_paste;
 
 use core::any::{TypeId, Any, type_name};
-#[cfg(feature="nightly")]
-use core::cell::RefCell;
 
 /// A service provider pattern implementation = associated read-only container with type as a key.
 ///
@@ -176,48 +174,9 @@ pub trait StateExt: State {
             .unwrap_or_else(|| panic!("{} required", type_name::<T>()))
             .downcast_mut::<T>().expect("invalid cast")
     }
-
 }
 
 impl<T: State + ?Sized> StateExt for T { }
-
-#[cfg(feature="nightly")]
-#[thread_local]
-static APP_STATE: RefCell<Option<*mut dyn State>> = RefCell::new(None);
-
-/// Allows safely store state in thread-local storage.
-#[cfg(feature="nightly")]
-pub struct AppState(());
-
-#[cfg(feature="nightly")]
-impl AppState {
-    /// Store the state into a thread-local storage and call the provided function.
-    /// During the function execution the state is accessible through the [`AppState::with`] method.
-    pub fn set_and_then<T>(f: impl FnOnce() -> T, state: &mut dyn State) -> T {
-        let _app_state = AppState::new(state);
-        f()
-    }
-
-    /// Get state from a thread-local storage. If this method is call outside of
-    /// [`AppState::set_and_then`] execution context, state is not accessible, and
-    /// the method panics.
-    pub fn with<T>(f: impl FnOnce(&mut dyn State) -> T) -> T {
-        let state = APP_STATE.borrow_mut().expect("AppState required");
-        unsafe { f(&mut *state) }
-    }
-
-    fn new(state: &mut dyn State) -> AppState {
-        APP_STATE.borrow_mut().replace(state as *mut _);
-        AppState(())
-    }
-}
-
-#[cfg(feature="nightly")]
-impl Drop for AppState {
-    fn drop(&mut self) {
-        APP_STATE.borrow_mut().take();
-    }
-}
 
 free_lifetimes! {
     struct StateSum {
@@ -313,7 +272,7 @@ impl<C: State> StateRefMut for &mut C {
 
 impl StateRefMut for &mut dyn State {
     fn merge_mut_and_then<T>(self, f: impl FnOnce(&mut dyn State) -> T, other: &mut dyn State) -> T {
-        StateSumBuilder {
+        StateSumMutBuilder {
             a: self,
             b: other,
         }.build_and_then(|x| f(x))
@@ -708,7 +667,7 @@ pub mod example {
 
 #[cfg(test)]
 mod test {
-    use crate::{StateExt, StateRefMut, AppState};
+    use crate::{StateExt, StateRefMut};
     use core::mem::replace;
     use macro_attr_2018::macro_attr;
 
@@ -776,26 +735,6 @@ mod test {
                 "res"
             }, &mut PrivStr)
         });
-        assert_eq!(res, "res");
-        assert_eq!(x, 12);
-    }
-
-    #[test]
-    fn app_state() {
-        let mut x = 3;
-        let res = State1Builder {
-            a: 1,
-            b: &2,
-            c: &mut x
-        }.build_and_then(|state| AppState::set_and_then(|| {
-            AppState::with(|state| {
-                let state: &mut State1 = state.get_mut();
-                assert_eq!(state.a(), 1u8);
-                assert_eq!(state.b(), &2u16);
-                assert_eq!(replace(state.c_mut(), 12), 3u32);
-                "res"
-            })
-        }, state));
         assert_eq!(res, "res");
         assert_eq!(x, 12);
     }

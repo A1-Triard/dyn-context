@@ -67,16 +67,14 @@ use core::any::{TypeId, Any, type_name};
 /// }
 ///
 /// use call_back::CallBack;
-/// use dyn_context::{State, StateExt};
-/// use macro_attr_2018::macro_attr;
+/// use dyn_context::{SelfState, StateExt};
 /// use std::convert::Into;
 ///
-/// macro_attr! {
-///     #[derive(State!)]
-///     struct PrintState {
-///          value: String
-///     }
+/// struct PrintState {
+///      value: String
 /// }
+///
+/// impl SelfState for PrintState { }
 ///
 /// # fn main() {
 /// let mut call_back = CallBack::new();
@@ -110,7 +108,7 @@ use core::any::{TypeId, Any, type_name};
 /// #     }
 /// # }
 /// # 
-/// use dyn_context::{free_lifetimes, State, StateExt};
+/// use dyn_context::{free_lifetimes, SelfState, StateExt};
 /// use call_back::CallBack;
 ///
 /// free_lifetimes! {
@@ -118,8 +116,8 @@ use core::any::{TypeId, Any, type_name};
 ///         value: 'value ref str
 ///     }
 /// }
-/// 
-/// State!(() struct PrintState { .. });
+///
+/// impl SelfState for PrintState { }
 ///
 /// # fn main() {
 /// let mut call_back = CallBack::new();
@@ -132,10 +130,6 @@ use core::any::{TypeId, Any, type_name};
 /// }.build_and_then(|state| call_back.call_back(state));
 /// # }
 /// ```
-/// 
-/// Because the [`free_lifetimes!`](free_lifetimes) macro cannot be used simultaneously
-/// with [`macro_attr!`](https://docs.rs/macro-attr-2018/*/macro_attr_2018/macro.macro_attr.html),
-/// the [`State!`](macro@State) macro deriving `State` trait implementation used here in standalone mode.
 pub trait State: 'static {
     /// Borrows shareable data entry.
     ///

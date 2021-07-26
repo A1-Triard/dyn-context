@@ -41,7 +41,7 @@ mod call_back {
     }
 }
 
-use dyn_context::{free_lifetimes, State, StateExt};
+use dyn_context::{free_lifetimes, SelfState, StateExt};
 use call_back::CallBack;
 
 free_lifetimes! {
@@ -50,7 +50,7 @@ free_lifetimes! {
     }
 }
 
-State!(() struct PrintState { .. });
+impl SelfState for PrintState { }
 
 fn main() {
     let mut call_back = CallBack::new();

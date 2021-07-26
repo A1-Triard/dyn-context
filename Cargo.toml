@@ -1,7 +1,7 @@
 [package]
 edition = "2018"
 name = "dyn-context"
-version = "0.6.1"
+version = "0.7.0"
 authors = ["warlock <internalmike@gmail.com>"]
 description = "Non-owning service provider pattern implementation."
 readme = "README.md"
@@ -22,6 +22,3 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 paste = "1.0.0"
 generics = "0.3.1"
-
-[dev-dependencies]
-macro-attr-2018 = "1.1.1"

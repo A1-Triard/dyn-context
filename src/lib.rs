@@ -1,11 +1,15 @@
-#![cfg_attr(feature="nightly", feature(never_type))]
-#![cfg_attr(feature="nightly", feature(thread_local))]
-#![deny(warnings)]
-
 //! **Crate features**
 //!
 //! * `"nightly"`
 //! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
+
+#![cfg_attr(feature="nightly", feature(never_type))]
+#![cfg_attr(feature="nightly", feature(thread_local))]
+
+#![deny(warnings)]
+#![doc(test(attr(deny(warnings))))]
+#![doc(test(attr(allow(dead_code))))]
+#![doc(test(attr(allow(unused_variables))))]
 
 #![no_std]
 
@@ -155,6 +159,50 @@ impl State for () {
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { None }
 }
 
+/// Marks implementor as a trivial [`State`](trait@State).
+/// A trivial-implemented state is a state containing itself only.
+///
+/// # Examples
+///
+/// ```rust
+/// # use dyn_context::{SelfState, State, StateExt};
+/// #
+/// struct SomeData {
+///     data: u16,
+/// }
+///
+/// impl SelfState for SomeData { }
+///
+/// fn get_data_from_state(state: &dyn State) -> u16 {
+///     let some_data: &SomeData = state.get();
+///     some_data.data
+/// }
+///
+/// # fn main() {
+/// let some_data = SomeData { data: 7 };
+/// let data_from_state = get_data_from_state(&some_data);
+/// assert_eq!(data_from_state, 7);
+/// # }
+pub trait SelfState: 'static { }
+
+impl<T: SelfState> State for T {
+    fn get_raw(&self, ty: TypeId) -> Option<&dyn Any> {
+        if ty == TypeId::of::<T>() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+
+    fn get_mut_raw(&mut self, ty: TypeId) -> Option<&mut dyn Any> {
+        if ty == TypeId::of::<T>() {
+            Some(self)
+        } else {
+            None
+        }
+    }
+}
+
 /// Extends [`State`](trait@State) with methods that make it easier to access the content of the state.
 pub trait StateExt: State {
     /// Borrows shareable data reference.
@@ -277,80 +325,6 @@ impl StateRefMut for &mut dyn State {
             b: other,
         }.build_and_then(|x| f(x))
     }
-}
-
-/// A [macro attribute](https://crates.io/crates/macro-attr-2018)
-/// deriving trivial [`State`](trait@State) implementation.
-/// A trivial-implemented state is a state containing itself only.
-///
-/// # Examples
-///
-/// ```rust
-/// # use dyn_context::{State, StateExt};
-/// # use macro_attr_2018::macro_attr;
-/// #
-/// macro_attr! {
-///     #[derive(State!)]
-///     struct SomeData {
-///         data: u16,
-///     }
-/// }
-///
-/// fn get_data_from_state(state: &dyn State) -> u16 {
-///     let some_data: &SomeData = state.get();
-///     some_data.data
-/// }
-///
-/// # fn main() {
-/// let some_data = SomeData { data: 7 };
-/// let data_from_state = get_data_from_state(&some_data);
-/// assert_eq!(data_from_state, 7);
-/// # }
-#[macro_export]
-macro_rules! State {
-    (
-        ()
-        $vis:vis struct $name:ident $($body:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::State { @impl [$name] } $($body)*
-        }
-    };
-    (
-        ()
-        $vis:vis enum $name:ident $($body:tt)*
-    ) => {
-        $crate::generics_parse! {
-            $crate::State { @impl [$name] } $($body)*
-        }
-    };
-    (
-        @impl [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*] $($body:tt)*
-    ) => {
-        impl $($g)* $crate::State for $name $($r)* $($w)* {
-            fn get_raw(
-                &self,
-                ty: $crate::std_any_TypeId
-            ) -> $crate::std_option_Option<&dyn $crate::std_any_Any> {
-                if ty == $crate::std_any_TypeId::of::<Self>() {
-                    $crate::std_option_Option::Some(self)
-                } else {
-                    $crate::std_option_Option::None
-                }
-            }
-
-            fn get_mut_raw(
-                &mut self,
-                ty: $crate::std_any_TypeId
-            ) -> $crate::std_option_Option<&mut dyn $crate::std_any_Any> {
-                if ty == $crate::std_any_TypeId::of::<Self>() {
-                    $crate::std_option_Option::Some(self)
-                } else {
-                    $crate::std_option_Option::None
-                }
-            }
-        }
-    };
 }
 
 /// Creates structure, allowing to pack several references into
@@ -667,9 +641,8 @@ pub mod example {
 
 #[cfg(test)]
 mod test {
-    use crate::{StateExt, StateRefMut};
+    use crate::{SelfState, StateExt, StateRefMut};
     use core::mem::replace;
-    use macro_attr_2018::macro_attr;
 
     free_lifetimes! {
         struct State1 {
@@ -679,7 +652,7 @@ mod test {
         }
     }
     
-    State!(() struct State1 { .. });
+    impl SelfState for State1 { }
 
     #[test]
     fn test_state_1() {
@@ -715,10 +688,10 @@ mod test {
         assert_eq!(x, 3);
     }
 
-    macro_attr! {
-        #[derive(Debug, Clone, Copy, State!)]
-        struct PrivStr;
-    }
+    #[derive(Debug, Clone, Copy)]
+    struct PrivStr;
+
+    impl SelfState for PrivStr { }
 
     #[test]
     fn test_state_4() {

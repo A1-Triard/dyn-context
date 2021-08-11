@@ -27,7 +27,8 @@ pub struct App<'a>(&'a RefCell<Option<NonNull<dyn State>>>);
 
 impl<'a> App<'a> {
     /// Store the state into a thread-local storage and call the provided function.
-    /// During the function execution the state is accessible through the [`App::with`] method.
+    /// During the function execution the state is accessible
+    /// through the [`App::acquire_and_then`] method.
     pub fn set_and_then<T>(f: impl FnOnce() -> T, state: &mut dyn State) -> T {
         let _tla = ThreadLocalApp::new(state);
         f()

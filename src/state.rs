@@ -48,7 +48,7 @@ use core::any::{TypeId, Any, type_name};
 /// # }
 /// ```
 /// 
-/// For using `&str` instead of `String` the [`free_lifetimes!`](free_lifetimes) macro can be used:
+/// For using `&str` instead of `String` the [`free_lifetimes!`](free_lifetimes!) macro can be used:
 /// ```rust
 /// # mod call_back {
 /// #     use dyn_context::state::State;

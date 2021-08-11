@@ -42,11 +42,11 @@ pub mod state;
 pub mod free_lifetimes;
 
 #[cfg(feature="nightly")]
-pub mod app;
+pub mod tls;
 
 #[cfg(test)]
 mod test {
-    use crate::app::App;
+    use crate::tls::Tls;
     use crate::free_lifetimes;
     use crate::state::{SelfState, StateExt, StateRefMut};
     use core::mem::replace;
@@ -120,15 +120,15 @@ mod test {
     }
 
     #[test]
-    fn app() {
+    fn tls() {
         let mut x = 3;
         let res = State1Builder {
             a: 1,
             b: &2,
             c: &mut x
-        }.build_and_then(|state| App::set_and_then(|| {
-            App::acquire_and_then(|app| {
-                let state: &mut State1 = &mut app.borrow_mut();
+        }.build_and_then(|state| Tls::set_and_then(|| {
+            Tls::acquire_and_then(|tls| {
+                let state: &mut State1 = &mut tls.borrow_mut();
                 assert_eq!(state.a(), 1u8);
                 assert_eq!(state.b(), &2u16);
                 assert_eq!(replace(state.c_mut(), 12), 3u32);
@@ -146,8 +146,8 @@ mod test {
     struct Increment;
 
     impl Increment {
-        fn new(app: &mut App) -> Increment {
-            let value: &mut Value = &mut app.borrow_mut();
+        fn new(tls: &mut Tls) -> Increment {
+            let value: &mut Value = &mut tls.borrow_mut();
             value.0 += 1;
             Increment
         }
@@ -155,8 +155,8 @@ mod test {
 
     impl Drop for Increment {
         fn drop(&mut self) {
-            App::acquire_and_then(|app| {
-                let value: &mut Value = &mut app.borrow_mut();
+            Tls::acquire_and_then(|tls| {
+                let value: &mut Value = &mut tls.borrow_mut();
                 value.0 -= 1;
             });
         }
@@ -165,25 +165,25 @@ mod test {
     #[test]
     fn increment() {
         let mut value = Value(0);
-        App::set_and_then(|| App::acquire_and_then(|app| {
+        Tls::set_and_then(|| Tls::acquire_and_then(|tls| {
             {
-                let value: &mut Value = &mut app.borrow_mut();
+                let value: &mut Value = &mut tls.borrow_mut();
                 assert_eq!(value.0, 0);
             }
-            let _increment = Increment::new(app);
+            let _increment = Increment::new(tls);
             {
-                let value: &mut Value = &mut app.borrow_mut();
+                let value: &mut Value = &mut tls.borrow_mut();
                 assert_eq!(value.0, 1);
             }
             {
-                let _another_increment = Increment::new(app);
+                let _another_increment = Increment::new(tls);
                 {
-                    let value: &mut Value = &mut app.borrow_mut();
+                    let value: &mut Value = &mut tls.borrow_mut();
                     assert_eq!(value.0, 2);
                 }
             }
             {
-                let value: &mut Value = &mut app.borrow_mut();
+                let value: &mut Value = &mut tls.borrow_mut();
                 assert_eq!(value.0, 1);
             }
         }), &mut value);

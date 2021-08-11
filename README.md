@@ -45,9 +45,9 @@ mod call_back {
 }
 
 use call_back::CallBack;
-use dyn_context::app::App;
 use dyn_context::free_lifetimes;
 use dyn_context::state::SelfState;
+use dyn_context::tls::Tls;
 
 free_lifetimes! {
     struct PrintState {
@@ -59,13 +59,13 @@ impl SelfState for PrintState { }
 
 fn main() {
     let mut call_back = CallBack::new();
-    call_back.set_callback(|| App::acquire_and_then(|app| {
-        let print: &PrintState = &app.borrow();
+    call_back.set_callback(|| Tls::acquire_and_then(|tls| {
+        let print: &PrintState = &tls.borrow();
         println!("{}", print.value());
     }));
     PrintStateBuilder {
         value: "Hello, world!"
-    }.build_and_then(|state| App::set_and_then(|| {
+    }.build_and_then(|state| Tls::set_and_then(|| {
        call_back.call_back();
     }, state));
 }

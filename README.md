@@ -1,12 +1,12 @@
 # dyn-context
 
-This crate provides simple mechanism for lifetimes and generics safely erasing.
+This crate provides simple mechanism for safely erasing of 1) lifetimes, 2) generics, and 3) function arguments.
 
 1. Erasing lifetimes.
 
    In Rust, lifetimes are intrusive, and sometimes it can lead to
    an inadequately complex code. Moreover, in some cases it can lead to an _impossible code_,
-   means code so complex, so it can not make to compile, even it is logically meaningful.
+   means code so complex, so it can not make to compiles, even it is logically meaningful.
    (Such situations could occur because Rust does not support existential types
    with infinite parameters list.)
 
@@ -18,31 +18,36 @@ This crate provides simple mechanism for lifetimes and generics safely erasing.
    There are many reasons, why generics could be not a best choice in some concrete situation.
    This library provides `State` trait, which may be helpful in such cases.
 
-Combining both mechanics (lifetimes compression and dynamic state trait)
-allows building complex systems with callbacks:
+3. Erasing function parameters.
+
+   Although this should only be done as a last resort, it can be useful to pass state through
+   thread-local static storage.
+
+Combining all mechanics (lifetimes compression and dynamic context trait
+passing through thread-local storage) allows building complex systems with callbacks:
 ```rust
 mod call_back {
     use dyn_context::State;
 
     pub struct CallBack {
-        callback: Option<fn(state: &mut dyn State)>
+        callback: Option<fn()>
     }
 
     impl CallBack {
         pub fn new() -> Self { CallBack { callback: None } }
 
-        pub fn set_callback(&mut self, callback: fn(state: &mut dyn State)) {
+        pub fn set_callback(&mut self, callback: fn()) {
             self.callback.replace(callback);
         }
 
-        pub fn call_back(&self, state: &mut dyn State) {
-            self.callback.map(|callback| callback(state));
+        pub fn call_back(&self) {
+            self.callback.map(|callback| callback());
         }
     }
 }
 
-use dyn_context::{free_lifetimes, SelfState, StateExt};
 use call_back::CallBack;
+use dyn_context::{free_lifetimes, App, SelfState, StateExt};
 
 free_lifetimes! {
     struct PrintState {
@@ -54,12 +59,14 @@ impl SelfState for PrintState { }
 
 fn main() {
     let mut call_back = CallBack::new();
-    call_back.set_callback(|state| {
+    call_back.set_callback(|| App::with(|state| {
         let print: &PrintState = state.get();
         println!("{}", print.value());
-    });
+    }));
     PrintStateBuilder {
         value: "Hello, world!"
-    }.build_and_then(|state| call_back.call_back(state));
+    }.build_and_then(|state| App::set_and_then(|| {
+       call_back.call_back();
+    }, state));
 }
 ```

@@ -38,6 +38,12 @@ pub use generics::parse as generics_parse;
 pub use paste::paste as paste_paste;
 
 use core::any::{TypeId, Any, type_name};
+#[cfg(feature="nightly")]
+use core::cell::{self, RefCell};
+#[cfg(feature="nightly")]
+use core::ops::{Deref, DerefMut};
+#[cfg(feature="nightly")]
+use core::ptr::NonNull;
 
 /// A service provider pattern implementation = associated read-only container with type as a key.
 ///
@@ -216,9 +222,65 @@ pub trait StateExt: State {
             .unwrap_or_else(|| panic!("{} required", type_name::<T>()))
             .downcast_mut::<T>().expect("invalid cast")
     }
+
 }
 
 impl<T: State + ?Sized> StateExt for T { }
+
+#[cfg(feature="nightly")]
+#[thread_local]
+static APP: RefCell<Option<NonNull<dyn State>>> = RefCell::new(None);
+
+/// Allows safely store state in thread-local storage.
+#[cfg(feature="nightly")]
+pub struct App(());
+
+#[cfg(feature="nightly")]
+impl App {
+    /// Store the state into a thread-local storage and call the provided function.
+    /// During the function execution the state is accessible through the [`App::with`] method.
+    pub fn set_and_then<T>(f: impl FnOnce() -> T, state: &mut dyn State) -> T {
+        let _app = App::new(state);
+        f()
+    }
+
+    /// Get state from a thread-local storage. If this method is call outside of
+    /// [`App::set_and_then`] execution context, state is not accessible, and
+    /// the method panics.
+    pub fn borrow_and_then<T>(f: impl FnOnce(AppMut) -> T) -> T {
+        let ref_mut = APP.borrow_mut();
+        f(AppMut(ref_mut))
+    }
+
+    fn new(state: &mut dyn State) -> App {
+        APP.borrow_mut().replace(unsafe { NonNull::new_unchecked(state as *mut _) });
+        App(())
+    }
+}
+
+#[cfg(feature="nightly")]
+impl Drop for App {
+    fn drop(&mut self) {
+        APP.borrow_mut().take();
+    }
+}
+
+#[cfg(feature="nightly")]
+pub struct AppMut<'a>(cell::RefMut<'a, Option<NonNull<dyn State>>>);
+
+impl<'a> Deref for AppMut<'a> {
+    type Target = dyn State;
+
+    fn deref(&self) -> &dyn State {
+        unsafe { (&self.0).expect("App required").as_ref() }
+    }
+}
+
+impl<'a> DerefMut for AppMut<'a> {
+    fn deref_mut(&mut self) -> &mut dyn State {
+        unsafe { (&self.0).expect("App required").as_mut() }
+    }
+}
 
 free_lifetimes! {
     struct StateSum {
@@ -635,7 +697,7 @@ pub mod example {
 
 #[cfg(test)]
 mod test {
-    use crate::{SelfState, StateExt, StateRefMut};
+    use crate::{App, SelfState, StateExt, StateRefMut};
     use core::mem::replace;
 
     free_lifetimes! {
@@ -702,6 +764,26 @@ mod test {
                 "res"
             }, &mut PrivStr)
         });
+        assert_eq!(res, "res");
+        assert_eq!(x, 12);
+    }
+
+    #[test]
+    fn app() {
+        let mut x = 3;
+        let res = State1Builder {
+            a: 1,
+            b: &2,
+            c: &mut x
+        }.build_and_then(|state| App::set_and_then(|| {
+            App::borrow_and_then(|mut state| {
+                let state: &mut State1 = state.get_mut();
+                assert_eq!(state.a(), 1u8);
+                assert_eq!(state.b(), &2u16);
+                assert_eq!(replace(state.c_mut(), 12), 3u32);
+                "res"
+            })
+        }, state));
         assert_eq!(res, "res");
         assert_eq!(x, 12);
     }

@@ -27,8 +27,6 @@ Combining all mechanics (lifetimes compression and dynamic context trait
 passing through thread-local storage) allows building complex systems with callbacks:
 ```rust
 mod call_back {
-    use dyn_context::State;
-
     pub struct CallBack {
         callback: Option<fn()>
     }
@@ -47,7 +45,9 @@ mod call_back {
 }
 
 use call_back::CallBack;
-use dyn_context::{free_lifetimes, App, SelfState, StateExt};
+use dyn_context::app::App;
+use dyn_context::free_lifetimes;
+use dyn_context::state::SelfState;
 
 free_lifetimes! {
     struct PrintState {
@@ -59,8 +59,8 @@ impl SelfState for PrintState { }
 
 fn main() {
     let mut call_back = CallBack::new();
-    call_back.set_callback(|| App::with(|state| {
-        let print: &PrintState = state.get();
+    call_back.set_callback(|| App::acquire_and_then(|app| {
+        let print: &PrintState = &app.borrow();
         println!("{}", print.value());
     }));
     PrintStateBuilder {

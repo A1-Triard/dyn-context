@@ -20,8 +20,11 @@ This crate provides simple mechanism for lifetimes and generics safely erasing.
 
 Combining both mechanics (lifetimes compression and dynamic state trait)
 allows building complex systems with callbacks:
+
 ```rust
 mod call_back {
+    use dyn_context::state::State;
+
     pub struct CallBack {
         callback: Option<fn(state: &mut dyn State)>
     }
@@ -39,10 +42,9 @@ mod call_back {
     }
 }
 
-use dyn_context::{free_lifetimes, SelfState, StateExt};
 use call_back::CallBack;
 use dyn_context::free_lifetimes;
-use dyn_context::state::SelfState;
+use dyn_context::state::{SelfState, StateExt};
 
 free_lifetimes! {
     struct PrintState {

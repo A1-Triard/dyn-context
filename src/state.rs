@@ -119,7 +119,7 @@ impl State for () {
 
 pub trait RequiresStateDrop {
     fn drop_self(self, state: &mut dyn State);
-    fn incorrectly_dropped();
+    fn drop_incorrectly(self);
 }
 
 pub struct StateDrop<T: RequiresStateDrop> {
@@ -148,8 +148,10 @@ impl<T: RequiresStateDrop> StateDrop<T> {
 
 impl<T: RequiresStateDrop> Drop for StateDrop<T> {
     fn drop(&mut self) {
-        if self.value.is_some() || !panicking() {
-            T::incorrectly_dropped();
+        if let Some(value) = self.value.take() {
+            if !panicking() {
+                value.drop_incorrectly();
+            }
         }
     }
 }

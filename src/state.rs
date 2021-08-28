@@ -122,6 +122,7 @@ pub trait RequiresStateDrop {
     fn drop_incorrectly(self);
 }
 
+#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct StateDrop<T: RequiresStateDrop> {
     value: Option<T>,
 }

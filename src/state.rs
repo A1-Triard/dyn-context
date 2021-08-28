@@ -117,8 +117,10 @@ impl State for () {
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { None }
 }
 
-pub trait RequiresStateDrop {
-    fn drop_self(self, state: &mut dyn State);
+pub trait RequiresStateDrop: Sized {
+    fn get(state: &dyn State) -> &StateDrop<Self>;
+    fn get_mut(state: &mut dyn State) -> &mut StateDrop<Self>;
+    fn before_drop(state: &mut dyn State);
     fn drop_incorrectly(self);
 }
 
@@ -130,12 +132,10 @@ pub struct StateDrop<T: RequiresStateDrop> {
 impl<T: RequiresStateDrop> StateDrop<T> {
     pub fn new(value: T) -> Self { StateDrop { value: Some(value) } }
 
-    pub fn drop_self(&mut self, state: &mut dyn State) {
-        if let Some(value) = self.value.take() {
-            value.drop_self(state);
-        } else {
-            panic!("already dropped");
-        }
+    pub fn drop_self(state: &mut dyn State) {
+        T::before_drop(state);
+        let ok = T::get_mut(state).value.take().is_some();
+        assert!(ok, "StateDrop::drop_self");
     }
 
     pub fn get(&self) -> &T {

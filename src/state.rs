@@ -1,5 +1,6 @@
 use crate::free_lifetimes;
 use core::any::{TypeId, Any, type_name};
+use panicking::panicking;
 
 /// A service provider pattern implementation = associated read-only container with type as a key.
 ///
@@ -114,6 +115,43 @@ impl State for ! {
 impl State for () {
     fn get_raw(&self, _ty: TypeId) -> Option<&dyn Any> { None }
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { None }
+}
+
+pub trait RequiresStateDrop {
+    fn drop_self(self, state: &mut dyn State);
+    fn incorrectly_dropped() -> !;
+}
+
+pub struct StateDrop<T: RequiresStateDrop> {
+    value: Option<T>,
+}
+
+impl<T: RequiresStateDrop> StateDrop<T> {
+    pub fn new(value: T) -> Self { StateDrop { value: Some(value) } }
+
+    pub fn drop_self(&mut self, state: &mut dyn State) {
+        if let Some(value) = self.value.take() {
+            value.drop_self(state);
+        } else {
+            panic!("already dropped");
+        }
+    }
+
+    pub fn get(&self) -> &T {
+        self.value.as_ref().expect("value dropped")
+    }
+
+    pub fn get_mut(&mut self) -> &mut T {
+        self.value.as_mut().expect("value dropped")
+    }
+}
+
+impl<T: RequiresStateDrop> Drop for StateDrop<T> {
+    fn drop(&mut self) {
+        if self.value.is_some() || !panicking() {
+            T::incorrectly_dropped();
+        }
+    }
 }
 
 /// Marks implementor as a trivial [`State`](trait@State).

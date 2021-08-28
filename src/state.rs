@@ -119,7 +119,7 @@ impl State for () {
 
 pub trait RequiresStateDrop {
     fn drop_self(self, state: &mut dyn State);
-    fn incorrectly_dropped() -> !;
+    fn incorrectly_dropped();
 }
 
 pub struct StateDrop<T: RequiresStateDrop> {

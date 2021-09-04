@@ -46,6 +46,7 @@ mod test {
     use crate::free_lifetimes;
     use crate::state::{SelfState, StateExt, StateRefMut};
     use core::mem::replace;
+    use core::ops::Deref;
 
     free_lifetimes! {
         struct State1 {
@@ -113,5 +114,31 @@ mod test {
         });
         assert_eq!(res, "res");
         assert_eq!(x, 12);
+    }
+
+    free_lifetimes! {
+        #[derive(Debug)]
+        pub struct Items<ItemType> {
+            items: 'items ref [ItemType],
+        }
+    }
+
+    impl<ItemType> Deref for Items<ItemType> {
+        type Target = [ItemType];
+
+        fn deref(&self) -> &Self::Target {
+            self.items()
+        }
+    }
+
+    #[test]
+    fn free_lifetimes_with_generics() {
+        let items = &[1, 2, 3];
+        let sum: u8 = ItemsBuilder {
+            items
+        }.build_and_then(|items| {
+            items.iter().sum()
+        });
+        assert_eq!(sum, 6);
     }
 }

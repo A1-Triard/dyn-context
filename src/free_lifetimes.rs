@@ -256,7 +256,7 @@ macro_rules! free_lifetimes_impl {
                 /// and passes result to provided function.
                 $vis fn build_and_then<FreeLifetimesStructBuildReturnType>(
                     &mut self,
-                    f: impl $crate::std_ops_FnOnce(&mut $name) -> FreeLifetimesStructBuildReturnType 
+                    f: impl $crate::std_ops_FnOnce(&mut $name $($r)*) -> FreeLifetimesStructBuildReturnType
                 ) -> FreeLifetimesStructBuildReturnType {
                     let $builder = self;
                     let mut free_lifetimes = $name {

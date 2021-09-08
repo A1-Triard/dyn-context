@@ -109,15 +109,15 @@ macro_rules! free_lifetimes_impl {
             ]
             [
                 $($struct_fields)*
-                $field : *const $field_ty,
+                $field : &'static $field_ty,
             ]
             [
                 $($ctor_assignments)*
-                $field : $builder . $field as *const $field_ty,
+                $field : unsafe { &*($builder . $field as *const $field_ty) },
             ]
             [
                 $($struct_methods)*
-                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
+                $vis fn $field (&self) -> &$field_ty { self.$field }
             ]
             [$($other_fields)*]
         }
@@ -145,20 +145,20 @@ macro_rules! free_lifetimes_impl {
             ]
             [
                 $($struct_fields)*
-                $field : *mut $field_ty,
+                $field : &'static mut $field_ty,
             ]
             [
                 $($ctor_assignments)*
-                $field : $builder . $field as *mut $field_ty,
+                $field : unsafe { &mut *($builder . $field as *mut $field_ty) },
             ]
             [
                 $($struct_methods)*
 
                 #[allow(dead_code)]
-                $vis fn $field (&self) -> &$field_ty { unsafe { &*self.$field } }
+                $vis fn $field (&self) -> &$field_ty { self.$field }
 
                 #[allow(dead_code)]
-                $vis fn [< $field _mut >] (&mut self) -> &mut $field_ty { unsafe { &mut *self.$field } }
+                $vis fn [< $field _mut >] (&mut self) -> &mut $field_ty { self.$field }
             ]
             [$($other_fields)*]
         }
@@ -274,9 +274,6 @@ macro_rules! free_lifetimes_impl {
             impl $($g)* $name $($r)* $($w)* {
                 $($struct_methods)*
             }
-
-            unsafe impl $($g)* Send for $name $($r)* $($w)* { }
-            unsafe impl $($g)* Sync for $name $($r)* $($w)* { }
         }
     };
 }

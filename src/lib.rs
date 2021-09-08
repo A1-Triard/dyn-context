@@ -118,7 +118,7 @@ mod test {
 
     free_lifetimes! {
         #[derive(Debug)]
-        pub struct Items<ItemType> {
+        pub struct Items<ItemType: 'static> {
             items: 'items ref [ItemType],
         }
     }

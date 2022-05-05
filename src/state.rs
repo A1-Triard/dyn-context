@@ -257,26 +257,33 @@ free_lifetimes! {
 
 impl State for StateSumMut {
     fn get_raw(&self, ty: TypeId) -> Option<&dyn Any> {
-        if let Some(r) = self.a().get_raw(ty) {
-            Some(r)
-        } else if let Some(r) = self.b().get_raw(ty) {
-            Some(r)
-        } else {
-            None
-        }
+        self.a().get_raw(ty).or_else(|| self.b().get_raw(ty))
     }
 
     fn get_mut_raw(&mut self, ty: TypeId) -> Option<&mut dyn Any> {
-        let r = if let Some(r) = self.a_mut().get_mut_raw(ty) {
-            Some(r as *mut _)
-        } else if let Some(r) = self.b_mut().get_mut_raw(ty) {
-            Some(r as *mut _)
-        } else {
-            None
-        };
-        r.map(|x| unsafe { &mut *x })
+        borrow_mut_either(
+            self,
+            |x| x.a_mut().get_mut_raw(ty),
+            |x| x.b_mut().get_mut_raw(ty)
+        )
     }
 }
+
+fn borrow_mut_either<T: ?Sized, R: ?Sized>(
+    x: &mut T,
+    a: impl FnOnce(&mut T) -> Option<&mut R>,
+    b: impl FnOnce(&mut T) -> Option<&mut R>
+) -> Option<&mut R> {
+    let r = if let Some (r) = a(x) {
+        r as *mut _
+    } else if let Some(r) = b(x) {
+        r as *mut _
+    } else {
+        return None;
+    };
+    Some(unsafe { &mut *r })
+}
+
 
 /// Provides method allowing combine two read-only [`State`](trait@State)s into one.
 pub trait StateRef {

@@ -13,7 +13,7 @@
 
 #![no_std]
 
-#[cfg(feature="nightly")]
+#[cfg(all(test, feature="nightly"))]
 include!("doc_test_readme.include");
 
 #[doc(hidden)]

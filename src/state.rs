@@ -234,13 +234,7 @@ free_lifetimes! {
 
 impl State for StateSum {
     fn get_raw(&self, ty: TypeId) -> Option<&dyn Any> {
-        if let Some(r) = self.a().get_raw(ty) {
-            Some(r)
-        } else if let Some(r) = self.b().get_raw(ty) {
-            Some(r)
-        } else {
-            None
-        }
+        self.a().get_raw(ty).or_else(|| self.b().get_raw(ty))
     }
 
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> {

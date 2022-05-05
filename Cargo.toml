@@ -22,7 +22,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 educe = "0.4.18"
-generics = "0.3.1"
+generics = "0.4.0"
 panicking = { version= "0.0.1", default-features = false }
 paste = "1.0.0"
-phantom-type = { version = "0.3.1", default-features = false }
+phantom-type = { version = "0.4.1", default-features = false }

@@ -125,31 +125,33 @@ pub trait RequiresStateDrop: Sized {
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct StateDrop<T: RequiresStateDrop> {
-    value: Option<T>,
+pub struct StateDrop<T: RequiresStateDrop>(Option<T>);
+
+impl<T: RequiresStateDrop + Default> Default for StateDrop<T> {
+    fn default() -> Self { StateDrop(Some(T::default())) }
 }
 
 impl<T: RequiresStateDrop> StateDrop<T> {
-    pub fn new(value: T) -> Self { StateDrop { value: Some(value) } }
+    pub fn new(value: T) -> Self { StateDrop(Some(value)) }
 
     pub fn drop_self(state: &mut dyn State) {
         T::before_drop(state);
-        let ok = T::get_mut(state).value.take().is_some();
+        let ok = T::get_mut(state).0.take().is_some();
         assert!(ok, "StateDrop::drop_self");
     }
 
     pub fn get(&self) -> &T {
-        self.value.as_ref().expect("value dropped")
+        self.0.as_ref().expect("value dropped")
     }
 
     pub fn get_mut(&mut self) -> &mut T {
-        self.value.as_mut().expect("value dropped")
+        self.0.as_mut().expect("value dropped")
     }
 }
 
 impl<T: RequiresStateDrop> Drop for StateDrop<T> {
     fn drop(&mut self) {
-        if let Some(value) = self.value.take() {
+        if let Some(value) = self.0.take() {
             if !panicking() {
                 value.drop_incorrectly();
             }

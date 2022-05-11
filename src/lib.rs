@@ -25,6 +25,8 @@ pub use core::compile_error as std_compile_error;
 #[doc(hidden)]
 pub use core::concat as std_concat;
 #[doc(hidden)]
+pub use core::ops::Drop as std_ops_Drop;
+#[doc(hidden)]
 pub use core::ops::FnOnce as std_ops_FnOnce;
 #[doc(hidden)]
 pub use core::option::Option as std_option_Option;

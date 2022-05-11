@@ -117,44 +117,12 @@ impl State for () {
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { None }
 }
 
-pub trait RequiresStateDrop: Sized {
-    fn get(state: &dyn State) -> &StateDrop<Self>;
-    fn get_mut(state: &mut dyn State) -> &mut StateDrop<Self>;
-    fn before_drop(state: &mut dyn State);
-    fn drop_incorrectly(self);
-}
+pub trait Stop: Sized {
+    fn stop(state: Option<&mut dyn State>) -> bool;
 
-#[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct StateDrop<T: RequiresStateDrop>(Option<T>);
-
-impl<T: RequiresStateDrop + Default> Default for StateDrop<T> {
-    fn default() -> Self { StateDrop(Some(T::default())) }
-}
-
-impl<T: RequiresStateDrop> StateDrop<T> {
-    pub fn new(value: T) -> Self { StateDrop(Some(value)) }
-
-    pub fn drop_self(state: &mut dyn State) {
-        T::before_drop(state);
-        let ok = T::get_mut(state).0.take().is_some();
-        assert!(ok, "StateDrop::drop_self");
-    }
-
-    pub fn get(&self) -> &T {
-        self.0.as_ref().expect("value dropped")
-    }
-
-    pub fn get_mut(&mut self) -> &mut T {
-        self.0.as_mut().expect("value dropped")
-    }
-}
-
-impl<T: RequiresStateDrop> Drop for StateDrop<T> {
     fn drop(&mut self) {
-        if let Some(value) = self.0.take() {
-            if !panicking() {
-                value.drop_incorrectly();
-            }
+        if !Self::stop(None) && !panicking() {
+            panic!("{} requires explicit stop function call before dropping", type_name::<Self>());
         }
     }
 }
@@ -327,4 +295,38 @@ impl StateRefMut for &mut dyn State {
             b: other,
         }.build_and_then(|x| f(x))
     }
+}
+
+#[macro_export]
+macro_rules! impl_stop {
+    (
+        $($token:tt)+
+    ) => {
+        $crate::generics_parse! {
+            $crate::impl_stop_impl {
+            }
+            $($token)+
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! impl_stop_impl {
+    (
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        for $t:ty {
+            $($body:tt)*
+        }
+    ) => {
+        impl $($g)* $crate::state::Stop for $t $($w)* {
+            $($body)*
+        }
+
+        impl $($g)* $crate::std_ops_Drop for $t $($w)* {
+            fn drop(&mut self) {
+                <$t as $crate::state::Stop>::drop();
+            }
+        }
+    };
 }

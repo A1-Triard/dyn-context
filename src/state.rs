@@ -1,5 +1,6 @@
 use crate::free_lifetimes;
 use core::any::{TypeId, Any, type_name};
+use either::{Either, Left, Right};
 use panicking::panicking;
 
 /// A service provider pattern implementation = associated read-only container with type as a key.
@@ -118,10 +119,14 @@ impl State for () {
 }
 
 pub trait Stop: Sized {
-    fn stop(state: Option<&mut dyn State>) -> bool;
+    fn stop_impl(state_or_self: Either<&mut Self, &mut dyn State>) -> bool;
+
+    fn stop(state: &mut dyn State) -> bool {
+        Self::stop_impl(Right(state))
+    }
 
     fn drop(&mut self) {
-        if !Self::stop(None) && !panicking() {
+        if !Self::stop_impl(Left(self)) && !panicking() {
             panic!("{} requires explicit stop function call before dropping", type_name::<Self>());
         }
     }
@@ -325,8 +330,42 @@ macro_rules! impl_stop_impl {
 
         impl $($g)* $crate::std_ops_Drop for $t $($w)* {
             fn drop(&mut self) {
-                <$t as $crate::state::Stop>::drop();
+                <$t as $crate::state::Stop>::drop(self);
             }
         }
     };
+    (
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        $($token:tt)*
+    ) => {
+        $crate::std_compile_error!("\
+            invalid Stop trait implementation, allowed form is \
+            '$(<$generics>)? for $t:ty $(where $where_clause)? { ... }'\
+        ");
+    };
+}
+
+#[cfg(test)]
+mod test {
+    use either::{Either, Left, Right};
+    use crate::impl_stop;
+    use crate::state::{SelfState, State, StateExt};
+
+    struct TestStop {
+        stopped: bool
+    }
+
+    impl SelfState for TestStop { }
+
+    impl_stop!(for TestStop {
+        fn stop_impl(state_or_self: Either<&mut Self, &mut dyn State>) -> bool {
+            match state_or_self {
+                Left(this) => this.stopped,
+                Right(state) => {
+                    state.get_mut::<TestStop>().stopped = true;
+                    true
+                }
+            }
+        }
+    });
 }

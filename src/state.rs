@@ -1,6 +1,5 @@
 use crate::free_lifetimes;
 use core::any::{TypeId, Any, type_name};
-use either::{Either, Left, Right};
 use panicking::panicking;
 
 /// A service provider pattern implementation = associated read-only container with type as a key.
@@ -119,14 +118,12 @@ impl State for () {
 }
 
 pub trait Stop: Sized {
-    fn stop_impl(state_or_self: Either<&mut Self, &mut dyn State>) -> bool;
+    fn is_stopped(&self) -> bool;
 
-    fn stop(state: &mut dyn State) -> bool {
-        Self::stop_impl(Right(state))
-    }
+    fn stop(state: &mut dyn State);
 
     fn drop(&mut self) {
-        if !Self::stop_impl(Left(self)) && !panicking() {
+        if !self.is_stopped() && !panicking() {
             panic!("{} requires explicit stop function call before dropping", type_name::<Self>());
         }
     }
@@ -347,7 +344,6 @@ macro_rules! impl_stop_impl {
 
 #[cfg(test)]
 mod test {
-    use either::{Either, Left, Right};
     use crate::impl_stop;
     use crate::state::{SelfState, State, StateExt};
 
@@ -358,14 +354,10 @@ mod test {
     impl SelfState for TestStop { }
 
     impl_stop!(for TestStop {
-        fn stop_impl(state_or_self: Either<&mut Self, &mut dyn State>) -> bool {
-            match state_or_self {
-                Left(this) => this.stopped,
-                Right(state) => {
-                    state.get_mut::<TestStop>().stopped = true;
-                    true
-                }
-            }
+        fn is_stopped(&self) -> bool { self.stopped }
+
+        fn stop(state: &mut dyn State) {
+            state.get_mut::<TestStop>().stopped = true;
         }
     });
 }

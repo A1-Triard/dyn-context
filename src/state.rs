@@ -342,8 +342,49 @@ macro_rules! impl_stop_impl {
     };
 }
 
+#[macro_export]
+macro_rules! NewtypeStop {
+    (
+        ()
+        $vis:vis struct $name:ident $($body:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::NewtypeStop_impl {
+                [$name]
+            }
+            $($body)*
+        }
+    };
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! NewtypeStop_impl {
+    (
+        [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        ($(pub)? $stop:ty $(, $(pub)? $phantom:ty)* $(,)?);
+    ) => {
+        impl $($g)* $crate::state::Stop for $name $($r)* $($w)* {
+            fn is_stopped(&self) -> bool {
+                <$stop as $crate::state::Stop>::is_stopped(&self.0)
+            }
+
+            fn stop(state: &mut dyn $crate::state::State) {
+                <$stop as $crate::state::Stop>::stop(state);
+            }
+        }
+    };
+    (
+        [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        $($body:tt)*
+    ) => {
+        $crate::std_compile_error!("'Stop' deriving is supported for non-empty tuple structs only");
+    };
+}
+
 #[cfg(test)]
 mod test {
+    use macro_attr_2018::macro_attr;
     use crate::impl_stop;
     use crate::state::{SelfState, State, StateExt};
 
@@ -360,4 +401,9 @@ mod test {
             state.get_mut::<TestStop>().stopped = true;
         }
     });
+
+    macro_attr! {
+        #[derive(NewtypeStop!)]
+        struct N(TestStop);
+    }
 }

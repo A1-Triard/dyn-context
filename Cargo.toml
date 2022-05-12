@@ -26,3 +26,6 @@ generics = "0.4.0"
 panicking = { version= "0.0.1", default-features = false }
 paste = "1.0.0"
 phantom-type = { version = "0.4.1", default-features = false }
+
+[dev-dependencies]
+macro-attr-2018 = "2.0.1"

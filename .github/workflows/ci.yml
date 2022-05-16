@@ -56,29 +56,29 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: "--verbose --no-default-features ${{ matrix.features }}"
+        args: "--verbose --workspace --no-default-features ${{ matrix.features }}"
     - name: test --tests
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: "--verbose --tests --no-default-features ${{ matrix.features }}"
+        args: "--verbose --workspace --tests --no-default-features ${{ matrix.features }}"
       if: "${{ matrix.features == '--features=nightly' }}"
     - name: test --doc
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: "--verbose --doc --no-default-features ${{ matrix.features }}"
+        args: "--verbose --workspace --doc --no-default-features ${{ matrix.features }}"
       if: "${{ matrix.features == '--features=nightly' }}"
     - name: doc
       uses: actions-rs/cargo@v1
       with:
         command: doc
-        args: "--verbose --no-default-features ${{ matrix.features }}"
+        args: "--verbose --workspace --no-default-features ${{ matrix.features }}"
     - name: test --docsrs
       uses: actions-rs/cargo@v1
       with:
         command: test
-        args: "--verbose --doc"
+        args: "--verbose --workspace --doc"
       env:
         RUSTFLAGS: "--cfg docsrs"
         RUSTDOCFLAGS: "--cfg docsrs"
@@ -87,7 +87,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: doc
-        args: "--verbose"
+        args: "--verbose --workspace"
       env:
         RUSTFLAGS: "--cfg docsrs"
         RUSTDOCFLAGS: "--cfg docsrs"
@@ -96,7 +96,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: build
-        args: "--verbose --release --no-default-features ${{ matrix.features }}"
+        args: "--verbose --workspace --release --no-default-features ${{ matrix.features }}"
     - name: rustup component add rust-src
       run: "rustup component add rust-src --toolchain nightly-${{ matrix.triple }}"
       if: "${{ matrix.triple != '' }}"
@@ -111,11 +111,11 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
         command: outdated
-        args: "--verbose --aggresssive --root-deps-only --exit-code 1 ${{ matrix.features }}"
+        args: "--verbose --workspace --aggresssive --root-deps-only --exit-code 1 ${{ matrix.features }}"
     - name: rustup component add clippy
       run: "rustup component add clippy"
     - name: clippy
       uses: actions-rs/cargo@v1
       with:
         command: clippy
-        args: "--verbose --no-default-features ${{ matrix.features }}"
+        args: "--verbose --workspace --no-default-features ${{ matrix.features }}"

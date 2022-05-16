@@ -47,8 +47,8 @@ pub use dyn_context_macro::Stop;
 
 #[cfg(test)]
 mod test {
-    use crate::free_lifetimes;
-    use crate::state::{SelfState, StateExt, StateRefMut};
+    use crate::{Stop, free_lifetimes, impl_stop};
+    use crate::state::{SelfState, State, StateExt, StateRefMut};
     use core::mem::replace;
     use core::ops::Deref;
 
@@ -145,4 +145,21 @@ mod test {
         });
         assert_eq!(sum, 6);
     }
+
+    struct TestStop {
+        stopped: bool
+    }
+
+    impl SelfState for TestStop { }
+
+    impl_stop!(for TestStop {
+        fn is_stopped(&self) -> bool { self.stopped }
+
+        fn stop(state: &mut dyn State) {
+            state.get_mut::<TestStop>().stopped = true;
+        }
+    });
+
+    #[derive(Stop)]
+    struct N(TestStop);
 }

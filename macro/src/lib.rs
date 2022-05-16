@@ -107,6 +107,13 @@ fn stop_trait() -> Path {
     ])
 }
 
+fn state_trait() -> Path {
+    dyn_context_crate([
+        PathSegment { ident: Ident::new("state", Span::call_site()), arguments: PathArguments::None },
+        PathSegment { ident: Ident::new("State", Span::call_site()), arguments: PathArguments::None },
+    ])
+}
+
 fn struct_fields(
     fields: Fields,
     filter: fn(&[Attribute]
@@ -136,10 +143,10 @@ fn impl_struct(
     let stop_trait = stop_trait();
     struct_fields(data.fields, filter).into_iter()
         .map(|(ty, member)| (
-            quote! { <#ty as #stop_trait>::is_stopped(self. #member) },
+            quote! { <#ty as #stop_trait>::is_stopped(&self. #member) },
             quote! { <#ty as #stop_trait>::stop(#state_var); },
         ))
-        .fold((TokenStream::new(), TokenStream::new()), |
+        .fold((quote! { true }, TokenStream::new()), |
             (is_stopped, mut stop),
             (field_is_stopped, field_stop)
         | (
@@ -158,13 +165,13 @@ fn impl_variant(
         Fields::Named(FieldsNamed { named, .. }) => {
             let (fields, is_stopped, stop) = named.into_iter()
                 .filter(|x| filter(&x.attrs))
-                .map(|x| (x.ty, { let mut x = x.ident.unwrap().clone(); x.set_span(Span::mixed_site()); x }))
+                .map(|x| (x.ty, { let mut x = x.ident.unwrap(); x.set_span(Span::mixed_site()); x }))
                 .map(|(ty, ident)| (
                     ident.clone(),
                     quote! { <#ty as #stop_trait>::is_stopped(#ident) },
                     quote! { <#ty as #stop_trait>::stop(#state_var); },
                 ))
-                .fold((TokenStream::new(), TokenStream::new(), TokenStream::new()), |
+                .fold((TokenStream::new(), quote! { true }, TokenStream::new()), |
                     (fields, is_stopped, mut stop),
                     (field, field_is_stopped, field_stop)
                 | (
@@ -189,7 +196,7 @@ fn impl_variant(
                     quote! { <#ty as #stop_trait>::is_stopped(#ident) },
                     quote! { <#ty as #stop_trait>::stop(#state_var); },
                 ))
-                .fold((TokenStream::new(), TokenStream::new(), TokenStream::new()), |
+                .fold((TokenStream::new(), quote! { true }, TokenStream::new()), |
                     (fields, is_stopped, mut stop),
                     (field, field_is_stopped, field_stop)
                 | (
@@ -252,11 +259,12 @@ pub fn derive_stop(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
         Data::Union(_) => panic!("state deriving is not supported for unions"),
     };
     let stop_trait = stop_trait();
+    let state_trait = state_trait();
     quote! {
         impl #g #stop_trait #r for #ident #w {
             fn is_stopped(&self) -> bool { #is_stopped }
 
-            fn stop(#state_var : &mut dyn #stop_trait) { #stop }
+            fn stop(#state_var : &mut dyn #state_trait) { #stop }
         }
     }.into()
 }

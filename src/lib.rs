@@ -43,6 +43,8 @@ pub mod state;
 
 pub mod free_lifetimes;
 
+pub use dyn_context_macro::Stop;
+
 #[cfg(test)]
 mod test {
     use crate::free_lifetimes;

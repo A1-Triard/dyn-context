@@ -183,7 +183,7 @@ fn call_stop_struct_fields(
 ) -> (TokenStream, TokenStream) {
     let stop_trait = stop_trait();
     iterate_struct_fields(data.fields).into_iter()
-        .filter(|(attrs, _, _)| filter(&attrs))
+        .filter(|(attrs, _, _)| filter(attrs))
         .map(|(_, ty, member)| (
             quote! { <#ty as #stop_trait>::is_stopped(&self. #member) },
             quote! { <#ty as #stop_trait>::stop(#state_var); },

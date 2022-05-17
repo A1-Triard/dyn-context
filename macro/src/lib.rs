@@ -158,14 +158,6 @@ fn state_trait() -> Path {
     ])
 }
 
-fn is_named(fields: &Fields) -> bool {
-    match fields {
-        Fields::Named(_) => true,
-        Fields::Unnamed(_) => false,
-        Fields::Unit => false,
-    }
-}
-
 fn filter_struct_fields(
     fields: Fields,
     filter: fn(&[Attribute]) -> bool
@@ -215,7 +207,7 @@ pub fn derive_stop(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let state_var = Ident::new("state", Span::mixed_site());
     let (is_stopped, stop) = match data {
         Data::Struct(data) => {
-            let filter = select_filter(&attrs, is_named(&data.fields));
+            let filter = select_filter(&attrs, matches!(&data.fields, Fields::Named { .. }));
             call_struct_fields(data, &state_var, filter)
         },
         Data::Enum(_) => abort_call_site!("'Stop' deriving is not supported for enums"),

@@ -3,6 +3,8 @@
 #![doc(test(attr(allow(dead_code))))]
 #![doc(test(attr(allow(unused_variables))))]
 
+#![allow(clippy::type_complexity)]
+
 extern crate proc_macro;
 
 use proc_macro_crate::{FoundCrate, crate_name};
@@ -22,11 +24,11 @@ enum StopAttr {
 }
 
 impl StopAttr {
-    fn span(&self) -> &Span {
+    fn span(&self) -> Span {
         match self {
-            StopAttr::None(span) => span,
-            StopAttr::Ignore(span) => span,
-            StopAttr::Explicit(span) => span,
+            StopAttr::None(span) => *span,
+            StopAttr::Ignore(span) => *span,
+            StopAttr::Explicit(span) => *span,
         }
     }
 }
@@ -97,7 +99,7 @@ fn find_stop_attr(attrs: &[Attribute]) -> Result<Option<StopAttr>, Error> {
         let attr_1 = attr_1?;
         if let Some(attr_2) = attrs.next() {
             let attr_2 = attr_2?;
-            Err(duplicated_attr(attr_2.span().clone()))
+            Err(duplicated_attr(attr_2.span()))
         } else {
             Ok(Some(attr_1))
         }

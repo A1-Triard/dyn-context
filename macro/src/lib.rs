@@ -32,13 +32,15 @@ impl<T> Parsed<T> {
 enum Stop {
     None,
     Ignore,
+    Implicit,
     Explicit,
 }
 
 const ERR_ILL_FORMED_STOP: &str = "\
     ill-formed 'stop' attr, allowed forms are \
     '#[stop]', \
-    '#[stop(ignore)]', and \
+    '#[stop(ignore)]', \
+    '#[stop(implicit)]', and \
     '#[stop(explicit)]'\
 ";
 
@@ -50,12 +52,23 @@ const ERR_NO_STOP_EXPLICIT_HERE: &str = "\
     '#[stop(explicit)]' is not allowed here\
 ";
 
+const ERR_NO_STOP_IMPLICIT_HERE: &str = "\
+    '#[stop(implicit)]' is not allowed here\
+";
+
 const ERR_NO_STOP_IGNORE_HERE: &str = "\
     '#[stop(ignore)]' is not allowed here\
 ";
 
+const ERR_REDUNDANT_STOP_ON_STRUCT: &str = "\
+    redundant 'stop' attribute, use \
+    '#[stop(implicit)]' or \
+    '#[stop(explicit)] \
+    to manually choose fields selection rule\
+";
+
 const ERR_REDUNDANT_STOP: &str = "\
-    redundant 'stop' attribute, it is implicitly supposed here\
+    redundant '#[stop]' attribute, it is implicitly supposed here\
 ";
 
 const ERR_REDUNDANT_STOP_IGNORE: &str = "\
@@ -74,6 +87,7 @@ fn as_stop_attr(a: &Attribute) -> Option<Parsed<Stop>> {
         match token {
             TokenTree::Ident(i) if i == "ignore" => Some(Parsed::new(Stop::Ignore, a)),
             TokenTree::Ident(i) if i == "explicit" => Some(Parsed::new(Stop::Explicit, a)),
+            TokenTree::Ident(i) if i == "implicit" => Some(Parsed::new(Stop::Implicit, a)),
             _ => None,
         }
     })().unwrap_or_else(|| abort!(a, ERR_ILL_FORMED_STOP)))
@@ -91,8 +105,9 @@ fn find_stop_attr(attrs: &[Attribute]) -> Option<Parsed<Stop>> {
 fn filter_implicit(attrs: &[Attribute]) -> bool {
     match find_stop_attr(attrs) {
         None => true,
-        Some(Parsed { value: Stop::None, source }) => abort!(source, ERR_REDUNDANT_STOP),
+        Some(Parsed { value: Stop::None, source }) => abort!(source, ERR_REDUNDANT_STOP_ON_STRUCT),
         Some(Parsed { value: Stop::Explicit, source }) => abort!(source, ERR_NO_STOP_EXPLICIT_HERE),
+        Some(Parsed { value: Stop::Implicit, source }) => abort!(source, ERR_NO_STOP_IMPLICIT_HERE),
         Some(Parsed { value: Stop::Ignore, .. }) => false,
     }
 }
@@ -102,15 +117,17 @@ fn filter_explicit(attrs: &[Attribute]) -> bool {
         None => false,
         Some(Parsed { value: Stop::None, .. }) => true,
         Some(Parsed { value: Stop::Explicit, source }) => abort!(source, ERR_NO_STOP_EXPLICIT_HERE),
+        Some(Parsed { value: Stop::Implicit, source }) => abort!(source, ERR_NO_STOP_IMPLICIT_HERE),
         Some(Parsed { value: Stop::Ignore, source }) => abort!(source, ERR_REDUNDANT_STOP_IGNORE),
     }
 }
 
-fn select_filter(attrs: &[Attribute]) -> fn(&[Attribute]) -> bool {
+fn select_filter(attrs: &[Attribute], named_fields: bool) -> fn(&[Attribute]) -> bool {
     match find_stop_attr(attrs) {
-        None => filter_implicit,
+        None => if named_fields { filter_explicit } else { filter_implicit },
         Some(Parsed { value: Stop::None, source }) => abort!(source, ERR_REDUNDANT_STOP),
         Some(Parsed { value: Stop::Explicit, .. }) => filter_explicit,
+        Some(Parsed { value: Stop::Implicit, .. }) => filter_implicit,
         Some(Parsed { value: Stop::Ignore, source }) => abort!(source, ERR_NO_STOP_IGNORE_HERE),
     }
 }
@@ -139,6 +156,14 @@ fn state_trait() -> Path {
         PathSegment { ident: Ident::new("state", Span::call_site()), arguments: PathArguments::None },
         PathSegment { ident: Ident::new("State", Span::call_site()), arguments: PathArguments::None },
     ])
+}
+
+fn is_named(fields: &Fields) -> bool {
+    match fields {
+        Fields::Named(_) => true,
+        Fields::Unnamed(_) => false,
+        Fields::Unit => false,
+    }
 }
 
 fn filter_struct_fields(
@@ -187,10 +212,12 @@ fn call_struct_fields(
 pub fn derive_stop(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let DeriveInput { ident, data, attrs, generics, .. } = parse(item).unwrap();
     let (g, r, w) = generics.split_for_impl();
-    let filter = select_filter(&attrs);
     let state_var = Ident::new("state", Span::mixed_site());
     let (is_stopped, stop) = match data {
-        Data::Struct(data) => call_struct_fields(data, &state_var, filter),
+        Data::Struct(data) => {
+            let filter = select_filter(&attrs, is_named(&data.fields));
+            call_struct_fields(data, &state_var, filter)
+        },
         Data::Enum(_) => abort_call_site!("'Stop' deriving is not supported for enums"),
         Data::Union(_) => abort_call_site!("'Stop' deriving is not supported for unions"),
     };

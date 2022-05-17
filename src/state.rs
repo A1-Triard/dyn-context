@@ -300,12 +300,12 @@ impl StateRefMut for &mut dyn State {
 }
 
 #[macro_export]
-macro_rules! impl_stop {
+macro_rules! impl_stop_and_appropriate_drop {
     (
         $($token:tt)+
     ) => {
         $crate::generics_parse! {
-            $crate::impl_stop_impl {
+            $crate::impl_stop_and_appropriate_drop_impl {
             }
             $($token)+
         }
@@ -314,7 +314,7 @@ macro_rules! impl_stop {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! impl_stop_impl {
+macro_rules! impl_stop_and_appropriate_drop_impl {
     (
         [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         for $t:ty {
@@ -385,7 +385,7 @@ macro_rules! NewtypeStop_impl {
 #[cfg(test)]
 mod test {
     use macro_attr_2018::macro_attr;
-    use crate::impl_stop;
+    use crate::impl_stop_and_appropriate_drop;
     use crate::state::{SelfState, State, StateExt};
 
     struct TestStop {
@@ -394,7 +394,7 @@ mod test {
 
     impl SelfState for TestStop { }
 
-    impl_stop!(for TestStop {
+    impl_stop_and_appropriate_drop!(for TestStop {
         fn is_stopped(&self) -> bool { self.stopped }
 
         fn stop(state: &mut dyn State) {

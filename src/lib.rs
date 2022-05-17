@@ -48,7 +48,7 @@ pub use dyn_context_macro::Stop;
 
 #[cfg(test)]
 mod test {
-    use crate::{State, Stop, free_lifetimes, impl_stop_and_appropriate_drop};
+    use crate::{State, Stop, free_lifetimes, impl_stop_and_drop};
     use crate::state::{SelfState, State, StateExt, StateRefMut};
     use core::mem::replace;
     use core::ops::Deref;
@@ -153,7 +153,7 @@ mod test {
 
     impl SelfState for TestStop { }
 
-    impl_stop_and_appropriate_drop!(for TestStop {
+    impl_stop_and_drop!(for TestStop {
         fn is_stopped(&self) -> bool { self.stopped }
 
         fn stop(state: &mut dyn State) {

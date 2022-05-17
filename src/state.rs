@@ -300,12 +300,12 @@ impl StateRefMut for &mut dyn State {
 }
 
 #[macro_export]
-macro_rules! impl_stop_and_appropriate_drop {
+macro_rules! impl_stop_and_drop {
     (
         $($token:tt)+
     ) => {
         $crate::generics_parse! {
-            $crate::impl_stop_and_appropriate_drop_impl {
+            $crate::impl_stop_and_drop_impl {
             }
             $($token)+
         }
@@ -314,7 +314,7 @@ macro_rules! impl_stop_and_appropriate_drop {
 
 #[doc(hidden)]
 #[macro_export]
-macro_rules! impl_stop_and_appropriate_drop_impl {
+macro_rules! impl_stop_and_drop_impl {
     (
         [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         for $t:ty {

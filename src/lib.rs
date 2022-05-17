@@ -165,8 +165,10 @@ mod test {
 
     #[derive(Stop)]
     #[stop(explicit)]
-    enum X {
-        Bool(bool),
-        Test(#[stop] TestStop, i32),
+    struct X {
+        #[stop]
+        s: TestStop,
+        #[allow(dead_code)]
+        i: i32
     }
 }

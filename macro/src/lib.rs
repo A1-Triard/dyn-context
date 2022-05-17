@@ -1,4 +1,4 @@
-//#![deny(warnings)]
+#![deny(warnings)]
 #![doc(test(attr(deny(warnings))))]
 #![doc(test(attr(allow(dead_code))))]
 #![doc(test(attr(allow(unused_variables))))]
@@ -9,9 +9,9 @@ use proc_macro_crate::{FoundCrate, crate_name};
 use proc_macro2::{Delimiter, Ident, Span, TokenStream, TokenTree};
 use quote::{quote, quote_spanned};
 use single::{self, Single};
-use syn::{Attribute, Data, DataEnum, DataStruct, DeriveInput, Fields, FieldsNamed};
+use syn::{Attribute, Data, DataStruct, DeriveInput, Fields, FieldsNamed};
 use syn::{FieldsUnnamed, Index, LitStr, Member, Path, PathArguments, PathSegment};
-use syn::{Token, Type, Variant, parse_macro_input};
+use syn::{Token, Type, parse_macro_input};
 use syn::punctuated::Punctuated;
 use try_match::try_match;
 
@@ -198,98 +198,6 @@ fn impl_struct(
     )
 }
 
-fn impl_variant(
-    variant: Variant,
-    state_var: &Ident,
-    filter: fn(&[Attribute]) -> Result<bool, Error>
-) -> Result<(TokenStream, TokenStream), Error> {
-    let stop_trait = stop_trait();
-    match variant.fields {
-        Fields::Named(FieldsNamed { named, .. }) => {
-            let (fields, is_stopped, stop) = named.into_iter()
-                .filter_map(|x| filter(&x.attrs).map(|k| Some(x).filter(|_| k)).transpose())
-                .map(|x| x.map(|x| (x.ty, { let mut x = x.ident.unwrap(); x.set_span(Span::mixed_site()); x })))
-                .map(|x| x.map(|(ty, ident)| (
-                    ident.clone(),
-                    quote! { <#ty as #stop_trait>::is_stopped(#ident) },
-                    quote! { <#ty as #stop_trait>::stop(#state_var); },
-                )))
-                .try_fold((TokenStream::new(), quote! { true }, TokenStream::new()), |
-                    (fields, is_stopped, mut stop),
-                    x
-                | x.map(|(field, field_is_stopped, field_stop)| (
-                    quote! { #fields #field , },
-                    quote! { #is_stopped && #field_is_stopped },
-                    { stop.extend(field_stop); stop }
-                )))
-            ?;
-            let ident = variant.ident;
-            Ok((
-                quote! { #ident { #fields } => #is_stopped, },
-                quote! { #ident { #fields } => #stop, }
-            ))
-        },
-        Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
-            let (fields, is_stopped, stop) = unnamed.into_iter()
-                .enumerate()
-                .filter_map(|(i, x)| filter(&x.attrs).map(|k| Some((i, x)).filter(|_| k)).transpose())
-                .map(|x| x.map(|(index, x)| (x.ty, Ident::new(&format!("_{}", index), Span::mixed_site()))))
-                .map(|x| x.map(|(ty, ident)| (
-                    ident.clone(),
-                    quote! { <#ty as #stop_trait>::is_stopped(#ident) },
-                    quote! { <#ty as #stop_trait>::stop(#state_var); },
-                )))
-                .try_fold((TokenStream::new(), quote! { true }, TokenStream::new()), |
-                    (fields, is_stopped, mut stop),
-                    x
-                | x.map(|(field, field_is_stopped, field_stop)| (
-                    quote! { #fields #field , },
-                    quote! { #is_stopped && #field_is_stopped },
-                    { stop.extend(field_stop); stop }
-                )))
-            ?;
-            let ident = variant.ident;
-            Ok((
-                quote! { #ident ( #fields ) => #is_stopped, },
-                quote! { #ident ( #fields ) => #stop, }
-            ))
-        },
-        Fields::Unit => {
-            let ident = variant.ident;
-            Ok((
-                quote! { #ident => true, },
-                quote! { #ident  => { }, }
-            ))
-        },
-    }
-}
-
-fn impl_enum(
-    data: DataEnum,
-    state_var: &Ident,
-    filter: fn(&[Attribute]) -> Result<bool, Error>
-) -> Result<(TokenStream, TokenStream), Error> {
-    let (is_stopped, stop) = data.variants.into_iter()
-        .filter_map(|x| filter(&x.attrs).map(|k| Some(x).filter(|_| k)).transpose())
-        .map(|x| x.and_then(|x| impl_variant(x, state_var, filter)))
-        .try_fold((TokenStream::new(), TokenStream::new()), |
-            (mut is_stopped, mut stop),
-            x
-        | x.map(|(variant_is_stopped, variant_stop)| (
-            { is_stopped.extend(variant_is_stopped); is_stopped },
-            { stop.extend(variant_stop); stop }
-        )))
-    ?;
-    Ok((
-        quote! {
-            match self { #is_stopped }
-        },
-        quote! {
-            match self { #stop }
-        }
-    ))
-}
-
 fn try_derive_stop(input: DeriveInput) -> Result<TokenStream, Error> {
     let DeriveInput { ident, data, attrs, generics, .. } = input;
     let (g, r, w) = generics.split_for_impl();
@@ -297,8 +205,8 @@ fn try_derive_stop(input: DeriveInput) -> Result<TokenStream, Error> {
     let state_var = Ident::new("state", Span::mixed_site());
     let (is_stopped, stop) = match data {
         Data::Struct(data) => impl_struct(data, &state_var, filter)?,
-        Data::Enum(data) => impl_enum(data, &state_var, filter)?,
-        Data::Union(_) => panic!("state deriving is not supported for unions"),
+        Data::Enum(_) => panic!("'Stop' deriving is not supported for enums"),
+        Data::Union(_) => panic!("'Stop' deriving is not supported for unions"),
     };
     let stop_trait = stop_trait();
     let state_trait = state_trait();

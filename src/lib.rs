@@ -162,4 +162,11 @@ mod test {
 
     #[derive(Stop)]
     struct N(TestStop);
+
+    #[derive(Stop)]
+    #[stop(explicit)]
+    enum X {
+        Bool(bool),
+        Test(#[stop] TestStop, i32),
+    }
 }

@@ -345,14 +345,14 @@ fn call_state_struct_fields(
             None => (get_raw, get_mut_raw),
             Some(Parsed { value: State::None, .. }) => (
                 quote! {
-                    if let #option_some (#x_var) = <#ty as #state_trait>::get_raw(#ty_var) {
+                    if let #option_some (#x_var) = <#ty as #state_trait>::get_raw(&self. #member, #ty_var) {
                         #option_some (#x_var)
                     } else {
                         #get_raw
                     }
                 },
                 quote! {
-                    if let #option_some (#x_var) = <#ty as #state_trait>::get_mut_raw(#ty_var) {
+                    if let #option_some (#x_var) = <#ty as #state_trait>::get_mut_raw(&mut self. #member, #ty_var) {
                         #option_some (#x_var)
                     } else {
                         #get_mut_raw

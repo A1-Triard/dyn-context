@@ -43,11 +43,12 @@ pub mod state;
 
 pub mod free_lifetimes;
 
+pub use dyn_context_macro::State;
 pub use dyn_context_macro::Stop;
 
 #[cfg(test)]
 mod test {
-    use crate::{Stop, free_lifetimes, impl_stop_and_appropriate_drop};
+    use crate::{State, Stop, free_lifetimes, impl_stop_and_appropriate_drop};
     use crate::state::{SelfState, State, StateExt, StateRefMut};
     use core::mem::replace;
     use core::ops::Deref;
@@ -170,5 +171,21 @@ mod test {
         s: TestStop,
         #[allow(dead_code)]
         i: i32
+    }
+
+    struct A;
+    impl SelfState for A { }
+    struct B;
+    impl SelfState for B { }
+
+    #[derive(State)]
+    #[state(part)]
+    struct TestDerive {
+        #[state]
+        a: A,
+        #[state]
+        b: B,
+        #[state(part)]
+        c: i32,
     }
 }

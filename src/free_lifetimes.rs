@@ -279,7 +279,7 @@ macro_rules! free_lifetimes_impl {
 }
 
 #[cfg(docsrs)]
-pub mod example {
+pub mod free_lifetimes_example {
     //! [`free_lifetimes`](free_lifetimes) macro expansion example.
     //!
     //! ```ignore

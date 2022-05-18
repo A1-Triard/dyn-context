@@ -39,17 +39,19 @@ pub use generics::parse as generics_parse;
 #[doc(hidden)]
 pub use paste::paste as paste_paste;
 
-pub mod state;
+mod state;
+pub use state::*;
 
-pub mod free_lifetimes;
+mod free_lifetimes;
+pub use free_lifetimes::*;
 
 pub use dyn_context_macro::State;
 pub use dyn_context_macro::Stop;
 
 #[cfg(test)]
 mod test {
-    use crate::{State, Stop, free_lifetimes, impl_stop_and_drop};
-    use crate::state::{SelfState, State, StateExt, StateRefMut};
+    use crate::{SelfState, State, StateExt, StateRefMut};
+    use crate::{Stop, free_lifetimes, impl_stop_and_drop};
     use core::mem::replace;
     use core::ops::Deref;
 

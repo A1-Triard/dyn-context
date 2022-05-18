@@ -10,7 +10,7 @@ use panicking::panicking;
 ///
 /// ```rust
 /// mod call_back {
-///     use dyn_context::state::State;
+///     use dyn_context::State;
 ///
 ///     pub struct CallBack {
 ///         callback: Option<fn(state: &mut dyn State)>
@@ -30,7 +30,7 @@ use panicking::panicking;
 /// }
 ///
 /// use call_back::CallBack;
-/// use dyn_context::state::{SelfState, StateExt};
+/// use dyn_context::{SelfState, StateExt};
 /// use std::convert::Into;
 ///
 /// struct PrintState {
@@ -52,7 +52,7 @@ use panicking::panicking;
 /// For using `&str` instead of `String` the [`free_lifetimes!`](free_lifetimes!) macro can be used:
 /// ```rust
 /// # mod call_back {
-/// #     use dyn_context::state::State;
+/// #     use dyn_context::State;
 /// # 
 /// #     pub struct CallBack {
 /// #         callback: Option<fn(state: &mut dyn State)>
@@ -73,7 +73,7 @@ use panicking::panicking;
 /// # 
 /// use call_back::CallBack;
 /// use dyn_context::free_lifetimes;
-/// use dyn_context::state::{SelfState, StateExt};
+/// use dyn_context::{SelfState, StateExt};
 ///
 /// free_lifetimes! {
 ///     struct PrintState {
@@ -135,7 +135,7 @@ pub trait Stop: Sized {
 /// # Examples
 ///
 /// ```rust
-/// # use dyn_context::state::{SelfState, State, StateExt};
+/// # use dyn_context::{SelfState, State, StateExt};
 /// #
 /// struct SomeData {
 ///     data: u16,
@@ -321,13 +321,13 @@ macro_rules! impl_stop_and_drop_impl {
             $($body:tt)*
         }
     ) => {
-        impl $($g)* $crate::state::Stop for $t $($w)* {
+        impl $($g)* $crate::Stop for $t $($w)* {
             $($body)*
         }
 
         impl $($g)* $crate::std_ops_Drop for $t $($w)* {
             fn drop(&mut self) {
-                <$t as $crate::state::Stop>::drop(self);
+                <$t as $crate::Stop>::drop(self);
             }
         }
     };

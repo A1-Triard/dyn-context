@@ -146,14 +146,12 @@ fn dyn_context_crate(path: impl IntoIterator<Item=PathSegment>) -> Path {
 
 fn stop_trait() -> Path {
     dyn_context_crate([
-        PathSegment { ident: Ident::new("state", Span::call_site()), arguments: PathArguments::None },
         PathSegment { ident: Ident::new("Stop", Span::call_site()), arguments: PathArguments::None },
     ])
 }
 
 fn state_trait() -> Path {
     dyn_context_crate([
-        PathSegment { ident: Ident::new("state", Span::call_site()), arguments: PathArguments::None },
         PathSegment { ident: Ident::new("State", Span::call_site()), arguments: PathArguments::None },
     ])
 }

@@ -23,7 +23,7 @@ allows building complex systems with callbacks:
 
 ```rust
 mod call_back {
-    use dyn_context::state::State;
+    use dyn_context::State;
 
     pub struct CallBack {
         callback: Option<fn(state: &mut dyn State)>
@@ -43,8 +43,7 @@ mod call_back {
 }
 
 use call_back::CallBack;
-use dyn_context::free_lifetimes;
-use dyn_context::state::{SelfState, StateExt};
+use dyn_context::{SelfState, StateExt, free_lifetimes};
 
 free_lifetimes! {
     struct PrintState {

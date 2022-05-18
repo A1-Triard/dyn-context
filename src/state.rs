@@ -299,6 +299,74 @@ impl StateRefMut for &mut dyn State {
     }
 }
 
+/// Helps to not forget to implement [`Drop`] when implementing [`Stop`].
+///
+/// Accepts input in the following form:
+///
+/// ```
+/// $(<$generics>)? for $t:ty $(where $where_clause)? {
+///     $($impl_stop_trait_body:tt)*
+/// }
+/// ```
+///
+/// # Example:
+///
+/// ```rust
+/// # use dyn_context::{SelfState, State, StateExt, Stop, impl_stop_and_drop};
+/// #
+/// struct Component {
+///     is_running: bool,
+/// }
+///
+/// impl Default for Component {
+///     fn default() -> Self {
+///         Component { is_running: false }
+///     }
+/// }
+///
+/// #[derive(Default)]
+/// struct MyState {
+///     components: [Component; 32]
+/// }
+///
+/// impl SelfState for MyState { }
+///
+/// #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+/// struct ComponentId(u8);
+///
+/// impl ComponentId {
+///     fn run(self, state: &mut dyn State) {
+///         let my_state: &mut MyState = state.get_mut();
+///         my_state.components[self.0 as usize].is_running = true;
+///     }
+///
+///     fn stop(self, state: &mut dyn State) {
+///         let my_state: &mut MyState = state.get_mut();
+///         my_state.components[self.0 as usize].is_running = false;
+///     }
+/// }
+///
+/// impl_stop_and_drop!(for MyState {
+///     fn is_stopped(&self) -> bool {
+///         self.components.iter().all(|x| !x.is_running)
+///     }
+///
+///     fn stop(state: &mut dyn State) {
+///         for n in 0 .. 32 {
+///             ComponentId(n).stop(state);
+///         }
+///     }
+/// });
+///
+/// # fn main() {
+/// let my_state: &mut dyn State = &mut MyState::default();
+/// ComponentId(17).run(my_state);
+/// MyState::stop(my_state); // this line commented ==
+///                          // panic!("MyState requires \
+///                          //         explicit stop function call \
+///                          //         before dropping")
+/// # }
+/// ```
 #[macro_export]
 macro_rules! impl_stop_and_drop {
     (
@@ -337,7 +405,7 @@ macro_rules! impl_stop_and_drop_impl {
     ) => {
         $crate::std_compile_error!("\
             invalid Stop trait implementation, allowed form is \
-            '$(<$generics>)? for $t:ty $(where $where_clause)? { ... }'\
+            '$(<$generics>)? for $t:ty $(where $where_clause)? { $($body:tt)* }'\
         ");
     };
 }

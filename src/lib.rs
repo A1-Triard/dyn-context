@@ -45,7 +45,20 @@ pub use state::*;
 mod free_lifetimes;
 pub use free_lifetimes::*;
 
+/// Derives [`State`] implementation for structs.
+///
+/// This derive macro allows easily combine
+/// new `State` from several parts and inner `States`.
+///
+/// Supports `#[state]` attribute, which can be in any
+/// of two forms: `#[state]`, and `#[state(part)]`.
+/// First form, `#[state]`, should be used to include
+/// fields which type have implemented [`State`] trait as
+/// an inner entry of building state. Second form, `#[state(part)]`,
+/// marks field as well as struct itself as a building state part,
+/// i.e. an object accessible by its type through [`State`] / [`StateExt`] methods.
 pub use dyn_context_macro::State;
+
 pub use dyn_context_macro::Stop;
 
 #[cfg(test)]

@@ -2,7 +2,8 @@
 /// a one reference to a `'static` type.
 ///
 /// Accepts input in the following form:
-/// ```
+///
+/// ```ignore
 /// $(#[$attr:meta])*
 /// $vis:vis struct $name:ident $(<$generics> $(where $where_clause)?)? {
 ///     $($(
@@ -21,6 +22,7 @@
 ///
 /// For example, you can pack together two `str` references and use them with
 /// a code, requiring a `'static` type:
+///
 /// ```rust
 /// # use dyn_context::{free_lifetimes};
 /// #

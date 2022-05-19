@@ -117,23 +117,32 @@ impl State for () {
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { None }
 }
 
-/// A destructor for [`State`]s.
+/// A destructor for [`State`] parts.
 ///
-/// Implementing custom descructor for states may be tricky:
-/// in common case appropriated method requires `&mut dyn State` paramenter
-/// to do the work. Unfortunatly, Rust does not support a
+/// Implementing custom destructor for state parts and states may be tricky:
+/// in a common case such action requires access to the `&mut dyn State` parameter
+/// to do the work. Unfortunately, Rust does not support a
 /// linear types concept, which would allow to have parameters in `drop` method.
-/// This traits provides a way to specify custom destructor for `State`s
+/// This traits provides a way to specify custom destructor for `State` parts
 /// as good as it is possible in Rust for now.
 ///
 /// Use [`impl_stop_and_drop`] macro to implement this trait in a right way.
 ///
-/// This trait can be derived with custom proc macro [`State`].
+/// This trait can be derived with custom proc macro [`Stop`](macro@crate::Stop).
 pub trait Stop: Sized {
+    /// Checks if the type is ready to be dropped.
     fn is_stopped(&self) -> bool;
 
+    /// Frees inner resources, driving the state part to the phase allowing dropping.
+    ///
+    /// The `is_stopped` method should return false after calling `stop`.
     fn stop(state: &mut dyn State);
 
+    /// Panicks if the type is not ready to be dropped
+    /// (and the current thread is not unwinding because of another panic).
+    ///
+    /// This method is supposed to be called from [`Drop::drop`].
+    /// Use [`impl_stop_and_drop`] macro to get appropriate [`Drop`] implement by free.
     fn drop(&mut self) {
         if !self.is_stopped() && !panicking() {
             panic!("{} requires explicit stop function call before dropping", type_name::<Self>());
@@ -141,7 +150,7 @@ pub trait Stop: Sized {
     }
 }
 
-/// Marks implementor as a trivial [`State`](trait@State).
+/// Marks implementer as a trivial [`State`](trait@State).
 /// A trivial-implemented state is a state containing itself only.
 ///
 /// # Examples
@@ -315,13 +324,13 @@ impl StateRefMut for &mut dyn State {
 ///
 /// Accepts input in any of following forms:
 ///
-/// ```
+/// ```ignore
 /// for $t:ty {
 ///     $($impl_stop_trait_body:tt)*
 /// }
 /// ```
 ///
-/// ```
+/// ```ignore
 /// <$generics> for $t:ty $(where $where_clause)? {
 ///     $($impl_stop_trait_body:tt)*
 /// }

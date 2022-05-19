@@ -7,8 +7,7 @@
 
 use core::alloc::Layout;
 use core::panic::PanicInfo;
-use dyn_context::free_lifetimes;
-use dyn_context::state::{SelfState};
+use dyn_context::{SelfState, free_lifetimes};
 use core::mem::replace;
 use core::ops::Deref;
 #[cfg(not(windows))]

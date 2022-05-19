@@ -432,9 +432,16 @@ macro_rules! impl_stop_and_drop_impl {
         [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         $($token:tt)*
     ) => {
-        $crate::std_compile_error!("\
-            invalid Stop trait implementation, allowed form is \
-            '$(<$generics>)? for $t:ty $(where $where_clause)? { $($body:tt)* }'\
-        ");
+        $crate::std_compile_error!($crate::indoc_indoc!("
+            invalid Stop trait implementation, allowed forms are
+
+            for $t:ty {
+                $($impl_stop_trait_body:tt)*
+            }
+
+            <$generics> for $t:ty $(where $where_clause)? {
+                $($impl_stop_trait_body:tt)*
+            }
+        "));
     };
 }

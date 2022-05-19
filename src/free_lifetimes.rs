@@ -90,10 +90,11 @@ macro_rules! free_lifetimes_impl {
         $crate::std_compile_error!($crate::indoc_indoc!("
             invalid free lifetimes struct definition, allowed form is
 
-            $(#[attr])* $vis struct $name {
-                $field_1_name: $('field_1_lt ref | 'field_1_lt mut | const) $field_1_type,
-                $field_2_name: $('field_2_lt ref | 'field_2_lt mut | const) $field_2_type,
-                ...
+            $(#[$attr:meta])*
+            $vis:vis struct $name:ident $(<$generics> $(where $where_clause)?)? {
+                $($(
+                    $field:ident : $($lt:lifetime ref | $lt:lifetime mut | const) $ty:ty
+                ),+ $(,)?)?
             }
 
         "));
@@ -222,7 +223,11 @@ macro_rules! free_lifetimes_impl {
         $crate::std_compile_error!($crate::std_concat!(
             "invalid free lifetimes struct field '",
             $crate::std_stringify!($field : $($field_lt)? $field_mod $field_ty),
-            "', allowed form is '$name: $('lt ref | 'lt mut | const) $type'",
+            "\
+                ', allowed form is '\
+                $field:ident : $($lt:lifetime ref | $lt:lifetime mut | const) $ty:ty\
+                '\
+            ",
         ));
     };
     (

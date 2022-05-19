@@ -136,10 +136,10 @@ fn dyn_context_crate(path: impl IntoIterator<Item=PathSegment>) -> Path {
     let c = crate_name("dyn-context").unwrap_or_else(|_| abort_call_site!("dyn-context dependency not found"));
     let name = match &c {
         FoundCrate::Itself => "dyn_context",
-        FoundCrate::Name(name) => &name,
+        FoundCrate::Name(name) => name,
     };
     let mut segments = Punctuated::new();
-    segments.push(PathSegment { ident: Ident::new(&name, Span::call_site()), arguments: PathArguments::None });
+    segments.push(PathSegment { ident: Ident::new(name, Span::call_site()), arguments: PathArguments::None });
     segments.extend(path);
     Path { leading_colon: Some(Token![::](Span::call_site())), segments }
 }

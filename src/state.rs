@@ -301,10 +301,16 @@ impl StateRefMut for &mut dyn State {
 
 /// Helps to not forget to implement [`Drop`] when implementing [`Stop`].
 ///
-/// Accepts input in the following form:
+/// Accepts input in any of following forms:
 ///
 /// ```
-/// $(<$generics>)? for $t:ty $(where $where_clause)? {
+/// for $t:ty {
+///     $($impl_stop_trait_body:tt)*
+/// }
+/// ```
+///
+/// ```
+/// <$generics> for $t:ty $(where $where_clause)? {
 ///     $($impl_stop_trait_body:tt)*
 /// }
 /// ```

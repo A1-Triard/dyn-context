@@ -1,6 +1,16 @@
 /// Creates structure, allowing to pack several references into
 /// a one reference to a `'static` type.
 ///
+/// Accepts input in the following form:
+/// ```
+/// $(#[$attr:meta])*
+/// $vis:vis struct $name:ident $(<$generics> $(where $where_clause)?)? {
+///     $($(
+///         $field:ident : $($lt:lifetime ref | $lt:lifetime mut | const) $ty:ty
+///     ),+ $(,)?)?
+/// }
+/// ```
+///
 /// In Rust, lifetimes are intrusive, and sometimes it can lead to
 /// an inadequately complex code. Moreover, in some cases it can lead to an _impossible code_,
 /// means code so complex, so it can not make to compiles, even it is logically meaningful.
@@ -41,13 +51,13 @@
 macro_rules! free_lifetimes {
     (
         $(#[$attr:meta])*
-        $vis:vis struct $name:ident $($body:tt)*
+        $vis:vis struct $name:ident $($token:tt)*
     ) => {
         $crate::generics_parse! {
             $crate::free_lifetimes_impl {
                 @struct [$([$attr])*] [$vis] [$name]
             }
-            $($body)*
+            $($token)*
         }
     };
 }
@@ -75,16 +85,16 @@ macro_rules! free_lifetimes_impl {
         @struct [$([$attr:meta])*] [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
         $($body:tt)*
     ) => {
-        $crate::std_compile_error!("\
-            invalid free lifetimes struct definition, allowed form is\n\
-            \n\
-            $(#[attr])* $vis struct $name {\n\
-                $field_1_name: $('field_1_lt ref | 'field_1_lt mut | const) $field_1_type,\n\
-                $field_2_name: $('field_2_lt ref | 'field_2_lt mut | const) $field_2_type,\n\
-                ...\n\
-            }\n\
-            \n\
-        ");
+        $crate::std_compile_error!($crate::indoc_indoc!("
+            invalid free lifetimes struct definition, allowed form is
+
+            $(#[attr])* $vis struct $name {
+                $field_1_name: $('field_1_lt ref | 'field_1_lt mut | const) $field_1_type,
+                $field_2_name: $('field_2_lt ref | 'field_2_lt mut | const) $field_2_type,
+                ...
+            }
+
+        "));
     };
     (
         @impl struct

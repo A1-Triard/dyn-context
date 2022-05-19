@@ -75,6 +75,15 @@ const ERR_REDUNDANT_STOP_IGNORE: &str = "\
     redundant '#[stop(ignore)]' attribute, it is implicitly supposed here\
 ";
 
+fn is_crate_attr(a: &Attribute) -> bool {
+    if a.path.leading_colon.is_some() || a.path.segments.trailing_punct() { return false; }
+    if let Ok(path) = a.path.segments.iter().single() {
+        path.arguments == PathArguments::None && path.ident == "_crate"
+    } else {
+        false
+    }
+}
+
 fn as_stop_attr(a: &Attribute) -> Option<Parsed<Stop>> {
     if a.path.leading_colon.is_some() || a.path.segments.trailing_punct() { return None; }
     let path = a.path.segments.iter().single().ok()?;
@@ -132,26 +141,29 @@ fn select_filter(attrs: &[Attribute], named_fields: bool) -> fn(&[Attribute]) ->
     }
 }
 
-fn dyn_context_crate(path: impl IntoIterator<Item=PathSegment>) -> Path {
+fn dyn_context_crate(use_crate: bool, path: impl IntoIterator<Item=PathSegment>) -> Path {
     let c = crate_name("dyn-context").unwrap_or_else(|_| abort_call_site!("dyn-context dependency not found"));
-    let name = match &c {
-        FoundCrate::Itself => "dyn_context",
-        FoundCrate::Name(name) => name,
+    let (leading_colon, name) = match &c {
+        FoundCrate::Itself => if use_crate { (false, "crate") } else { (true, "dyn_context") },
+        FoundCrate::Name(name) => (true, name.as_str()),
     };
     let mut segments = Punctuated::new();
     segments.push(PathSegment { ident: Ident::new(name, Span::call_site()), arguments: PathArguments::None });
     segments.extend(path);
-    Path { leading_colon: Some(Token![::](Span::call_site())), segments }
+    Path {
+        leading_colon: if leading_colon { Some(Token![::](Span::call_site())) } else { None },
+        segments
+    }
 }
 
-fn stop_trait() -> Path {
-    dyn_context_crate([
+fn stop_trait(use_crate: bool) -> Path {
+    dyn_context_crate(use_crate, [
         PathSegment { ident: Ident::new("Stop", Span::call_site()), arguments: PathArguments::None },
     ])
 }
 
-fn state_trait() -> Path {
-    dyn_context_crate([
+fn state_trait(use_crate: bool) -> Path {
+    dyn_context_crate(use_crate, [
         PathSegment { ident: Ident::new("State", Span::call_site()), arguments: PathArguments::None },
     ])
 }
@@ -175,11 +187,12 @@ fn iterate_struct_fields(
 }
 
 fn call_stop_struct_fields(
+    use_crate: bool,
     data: DataStruct,
     state_var: &Ident,
     filter: fn(&[Attribute]) -> bool
 ) -> (TokenStream, TokenStream) {
-    let stop_trait = stop_trait();
+    let stop_trait = stop_trait(use_crate);
     iterate_struct_fields(data.fields).into_iter()
         .filter(|(attrs, _, _)| filter(attrs))
         .map(|(_, ty, member)| (
@@ -196,21 +209,22 @@ fn call_stop_struct_fields(
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(Stop, attributes(stop))]
+#[proc_macro_derive(Stop, attributes(stop, _crate))]
 pub fn derive_stop(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let DeriveInput { ident, data, attrs, generics, .. } = parse(item).unwrap();
+    let use_crate = attrs.iter().any(is_crate_attr);
     let (g, r, w) = generics.split_for_impl();
     let state_var = Ident::new("state", Span::mixed_site());
     let (is_stopped, stop) = match data {
         Data::Struct(data) => {
             let filter = select_filter(&attrs, matches!(&data.fields, Fields::Named { .. }));
-            call_stop_struct_fields(data, &state_var, filter)
+            call_stop_struct_fields(use_crate, data, &state_var, filter)
         },
         Data::Enum(_) => abort_call_site!("'Stop' deriving is not supported for enums"),
         Data::Union(_) => abort_call_site!("'Stop' deriving is not supported for unions"),
     };
-    let stop_trait = stop_trait();
-    let state_trait = state_trait();
+    let stop_trait = stop_trait(use_crate);
+    let state_trait = state_trait(use_crate);
     quote! {
         impl #g #stop_trait #r for #ident #w {
             fn is_stopped(&self) -> bool { #is_stopped }
@@ -264,10 +278,10 @@ fn find_state_attr(attrs: &[Attribute]) -> Option<Parsed<State>> {
     Some(attr)
 }
 
-fn option_type(ty: Type) -> Path {
+fn option_type(use_crate: bool, ty: Type) -> Path {
     let mut args = Punctuated::new();
     args.push(GenericArgument::Type(ty));
-    dyn_context_crate([
+    dyn_context_crate(use_crate, [
         PathSegment {
             ident: Ident::new("std_option_Option", Span::call_site()),
             arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
@@ -280,41 +294,41 @@ fn option_type(ty: Type) -> Path {
     ])
 }
 
-fn any_trait() -> Path {
-    dyn_context_crate([
+fn any_trait(use_crate: bool) -> Path {
+    dyn_context_crate(use_crate, [
         PathSegment { ident: Ident::new("std_any_Any", Span::call_site()), arguments: PathArguments::None },
     ])
 }
 
-fn option_none() -> Path {
-    dyn_context_crate([
+fn option_none(use_crate: bool) -> Path {
+    dyn_context_crate(use_crate, [
         PathSegment { ident: Ident::new("std_option_Option", Span::call_site()), arguments: PathArguments::None },
         PathSegment { ident: Ident::new("None", Span::call_site()), arguments: PathArguments::None },
     ])
 }
 
-fn option_some() -> Path {
-    dyn_context_crate([
+fn option_some(use_crate: bool) -> Path {
+    dyn_context_crate(use_crate, [
         PathSegment { ident: Ident::new("std_option_Option", Span::call_site()), arguments: PathArguments::None },
         PathSegment { ident: Ident::new("Some", Span::call_site()), arguments: PathArguments::None },
     ])
 }
 
-fn type_id() -> Path {
-    dyn_context_crate([
+fn type_id(use_crate: bool) -> Path {
+    dyn_context_crate(use_crate, [
         PathSegment { ident: Ident::new("std_any_TypeId", Span::call_site()), arguments: PathArguments::None },
     ])
 }
 
-fn option_dyn_any(mutable: bool) -> Path {
+fn option_dyn_any(use_crate: bool, mutable: bool) -> Path {
     let mut bounds = Punctuated::new();
     bounds.push(TypeParamBound::Trait(TraitBound {
         paren_token: None,
         modifier: TraitBoundModifier::None,
         lifetimes: None,
-        path: any_trait()
+        path: any_trait(use_crate)
     }));
-    option_type(Type::Reference(TypeReference {
+    option_type(use_crate, Type::Reference(TypeReference {
         and_token: Token![&](Span::call_site()),
         lifetime: None,
         mutability: if mutable { Some(Token![mut](Span::call_site())) } else { None },
@@ -330,10 +344,11 @@ fn call_state_struct_fields(
     attrs: &[Attribute],
     ty_var: &Ident,
 ) -> (TokenStream, TokenStream) {
-    let state_trait = state_trait();
-    let option_none = option_none();
-    let option_some = option_some();
-    let type_id = type_id();
+    let use_crate = attrs.iter().any(is_crate_attr);
+    let state_trait = state_trait(use_crate);
+    let option_none = option_none(use_crate);
+    let option_some = option_some(use_crate);
+    let type_id = type_id(use_crate);
     let x_var = Ident::new("x", Span::mixed_site());
     let (get_raw, get_mut_raw) = iterate_struct_fields(data.fields).into_iter()
         .fold((quote! { #option_none }, quote! { #option_none }), |
@@ -374,9 +389,10 @@ fn call_state_struct_fields(
 }
 
 #[proc_macro_error]
-#[proc_macro_derive(State, attributes(state))]
+#[proc_macro_derive(State, attributes(state, _crate))]
 pub fn derive_state(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let DeriveInput { ident, data, attrs, generics, .. } = parse(item).unwrap();
+    let use_crate = attrs.iter().any(is_crate_attr);
     let (g, r, w) = generics.split_for_impl();
     let ty_var = Ident::new("ty", Span::mixed_site());
     let (get_raw, get_mut_raw) = match data {
@@ -384,10 +400,10 @@ pub fn derive_state(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
         Data::Enum(_) => abort_call_site!("'State' deriving is not supported for enums"),
         Data::Union(_) => abort_call_site!("'State' deriving is not supported for unions"),
     };
-    let state_trait = state_trait();
-    let option_ref_dyn_any = option_dyn_any(false);
-    let option_mut_dyn_any = option_dyn_any(true);
-    let type_id = type_id();
+    let state_trait = state_trait(use_crate);
+    let option_ref_dyn_any = option_dyn_any(use_crate, false);
+    let option_mut_dyn_any = option_dyn_any(use_crate, true);
+    let type_id = type_id(use_crate);
     quote! {
         impl #g #state_trait #r for #ident #w {
             fn get_raw(&self, #ty_var : #type_id) -> #option_ref_dyn_any { #get_raw }

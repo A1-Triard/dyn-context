@@ -224,9 +224,11 @@ mod test {
     });
 
     #[derive(Stop)]
+    #[_crate]
     struct N(TestStop);
 
     #[derive(Stop)]
+    #[_crate]
     #[stop(explicit)]
     struct X {
         #[stop]
@@ -241,6 +243,7 @@ mod test {
     impl SelfState for B { }
 
     #[derive(State)]
+    #[_crate]
     #[state(part)]
     struct TestDerive {
         #[state]

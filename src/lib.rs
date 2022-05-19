@@ -99,6 +99,9 @@ pub use free_lifetimes::*;
 /// let state = RootState { inner_1, inner_2 };
 ///
 /// assert_eq!(state.get::<StatePart>().0, 1);
+/// assert_eq!(state.get::<InnerState1>().0, 2);
+/// assert_eq!(state.get::<InnerInnerState>().0, 3);
+/// assert_eq!(state.get::<InnerState2>().var, 4);
 /// # }
 /// ```
 pub use dyn_context_macro::State;

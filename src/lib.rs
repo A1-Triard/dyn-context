@@ -4,7 +4,6 @@
 //! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
 
 #![cfg_attr(feature="nightly", feature(never_type))]
-#![cfg_attr(feature="nightly", feature(thread_local))]
 
 #![deny(warnings)]
 #![doc(test(attr(deny(warnings))))]
@@ -13,7 +12,6 @@
 
 #![no_std]
 
-#[cfg(feature="nightly")]
 include!("doc_test_readme.include");
 
 #[doc(hidden)]

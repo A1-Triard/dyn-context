@@ -57,6 +57,50 @@ pub use free_lifetimes::*;
 /// an inner entry of building state. Second form, `#[state(part)]`,
 /// marks field as well as struct itself as a building state part,
 /// i.e. an object accessible by its type through [`State`] / [`StateExt`] methods.
+///
+/// # Example
+///
+/// ```rust
+/// # use dyn_context::{SelfState, State, StateExt};
+/// #
+/// struct StatePart(i32);
+///
+/// struct InnerState1(i32);
+///
+/// impl SelfState for InnerState1 { }
+///
+/// struct InnerInnerState(i32);
+///
+/// impl SelfState for InnerInnerState { }
+///
+/// #[derive(State)]
+/// #[state(part)]
+/// struct InnerState2 {
+///     var: i32,
+///     #[state(part)]
+///     part: StatePart,
+///     #[state]
+///     inner_inner: InnerInnerState,
+/// }
+///
+/// #[derive(State)]
+/// struct RootState {
+///     #[state]
+///     inner_1: InnerState1,
+///     #[state]
+///     inner_2: InnerState2,
+/// }
+///
+/// # fn main() {
+/// let part = StatePart(1);
+/// let inner_1 = InnerState1(2);
+/// let inner_inner = InnerInnerState(3);
+/// let inner_2 = InnerState2 { var: 4, part, inner_inner };
+/// let state = RootState { inner_1, inner_2 };
+///
+/// assert_eq!(state.get::<StatePart>().0, 1);
+/// # }
+/// ```
 pub use dyn_context_macro::State;
 
 pub use dyn_context_macro::Stop;

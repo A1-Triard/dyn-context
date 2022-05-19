@@ -134,14 +134,14 @@ fn select_filter(attrs: &[Attribute], named_fields: bool) -> fn(&[Attribute]) ->
 
 fn dyn_context_crate(path: impl IntoIterator<Item=PathSegment>) -> Path {
     let c = crate_name("dyn-context").unwrap_or_else(|_| abort_call_site!("dyn-context dependency not found"));
-    let (leading_colon, ident) = match c {
-        FoundCrate::Itself => (None, Ident::new("crate", Span::call_site())),
-        FoundCrate::Name(name) => (Some(Token![::](Span::call_site())), Ident::new(&name, Span::call_site())),
+    let name = match &c {
+        FoundCrate::Itself => "dyn_context",
+        FoundCrate::Name(name) => &name,
     };
     let mut segments = Punctuated::new();
-    segments.push(PathSegment { ident, arguments: PathArguments::None });
+    segments.push(PathSegment { ident: Ident::new(&name, Span::call_site()), arguments: PathArguments::None });
     segments.extend(path);
-    Path { leading_colon, segments }
+    Path { leading_colon: Some(Token![::](Span::call_site())), segments }
 }
 
 fn stop_trait() -> Path {

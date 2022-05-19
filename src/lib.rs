@@ -35,6 +35,8 @@ pub use generics::concat as generics_concat;
 #[doc(hidden)]
 pub use generics::parse as generics_parse;
 #[doc(hidden)]
+pub use indoc::indoc as indoc_indoc;
+#[doc(hidden)]
 pub use paste::paste as paste_paste;
 
 mod state;

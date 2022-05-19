@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "dyn-context"
-version = "0.17.0"
+version = "0.17.1"
 rust-version = "1.60"
 authors = ["warlock <internalmike@gmail.com>"]
 description = "Non-owning service provider pattern implementation."
@@ -32,6 +32,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 educe = "0.4.18"
 generics = "0.4.0"
 dyn-context-macro = { path = "macro", version = "0.0.4" }
+indoc = "1.0.6"
 panicking = { version= "0.1.0", default-features = false }
 paste = "1.0.0"
 phantom-type = { version = "0.4.1", default-features = false }

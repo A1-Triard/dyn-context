@@ -126,7 +126,7 @@ impl State for () {
 /// This traits provides a way to specify custom destructor for `State` parts
 /// as good as it is possible in Rust for now.
 ///
-/// Use [`impl_stop_and_drop`] macro to implement this trait in a right way.
+/// Use [`impl_stop_and_drop`](crate::impl_stop_and_drop) macro to implement this trait in a right way.
 ///
 /// This trait can be derived with custom proc macro [`Stop`](macro@crate::Stop).
 pub trait Stop: Sized {

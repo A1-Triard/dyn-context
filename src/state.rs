@@ -139,7 +139,7 @@ pub trait Stop: Sized {
     /// The `is_stopped` method should return false after calling `stop`.
     fn stop(state: &mut dyn State);
 
-    /// Panicks if the type is not ready to be dropped
+    /// Panics if the type is not ready to be dropped
     /// (and the current thread is not unwinding because of another panic).
     ///
     /// This method is supposed to be called from [`Drop::drop`].

@@ -106,6 +106,27 @@ pub use free_lifetimes::*;
 /// ```
 pub use dyn_context_macro::State;
 
+/// Derives [`Stop`] implementation for structs.
+///
+/// Supports `#[stop]` attribute, which can be in any
+/// of following forms:
+/// 
+/// - `#[stop(explicit)]`
+/// - `#[stop(implicit)]`
+/// - `#[stop]`
+/// - `#[stop(ignore)`
+///
+/// This macro can have two modes: implicit and explicit.
+/// In the explicit mode all struct fields not marked with
+/// `#[stop]` attribute are ignored. In the implicit mode
+/// the behavior is the opposite: the implementation uses
+/// all fields not marked with `#[stop(ignore)]`.
+///
+/// The mode can be selected by adding to the struct
+/// `#[stop(explicit)]`, or
+/// `#[stop(implicit)]` attribute respectively. By default,
+/// mode is implicit for tuple structures (`struct Struct(...)`),
+/// and explicit for ordinary structures (`struct Struct { ... }`).
 pub use dyn_context_macro::Stop;
 
 #[cfg(test)]

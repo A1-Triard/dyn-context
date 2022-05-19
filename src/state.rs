@@ -117,6 +117,18 @@ impl State for () {
     fn get_mut_raw(&mut self, _ty: TypeId) -> Option<&mut dyn Any> { None }
 }
 
+/// A destructor for [`State`]s.
+///
+/// Implementing custom descructor for states may be tricky:
+/// in common case appropriated method requires `&mut dyn State` paramenter
+/// to do the work. Unfortunatly, Rust does not support a
+/// linear types concept, which would allow to have parameters in `drop` method.
+/// This traits provides a way to specify custom destructor for `State`s
+/// as good as it is possible in Rust for now.
+///
+/// Use [`impl_stop_and_drop`] macro to implement this trait in a right way.
+///
+/// This trait can be derived with custom proc macro [`State`].
 pub trait Stop: Sized {
     fn is_stopped(&self) -> bool;
 

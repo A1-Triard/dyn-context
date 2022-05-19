@@ -126,7 +126,8 @@ impl State for () {
 /// This traits provides a way to specify custom destructor for `State` parts
 /// as good as it is possible in Rust for now.
 ///
-/// Use [`impl_stop_and_drop`](crate::impl_stop_and_drop) macro to implement this trait in a right way.
+/// Use [`impl_stop_and_drop`](crate::impl_stop_and_drop) macro
+/// to implement this trait in a right way.
 ///
 /// This trait can be derived with custom proc macro [`Stop`](macro@crate::Stop).
 pub trait Stop: Sized {
@@ -142,7 +143,8 @@ pub trait Stop: Sized {
     /// (and the current thread is not unwinding because of another panic).
     ///
     /// This method is supposed to be called from [`Drop::drop`].
-    /// Use [`impl_stop_and_drop`] macro to get appropriate [`Drop`] implement by free.
+    /// Use [`impl_stop_and_drop`](crate::impl_stop_and_drop) macro
+    /// to get appropriate [`Drop`] implement by free.
     fn drop(&mut self) {
         if !self.is_stopped() && !panicking() {
             panic!("{} requires explicit stop function call before dropping", type_name::<Self>());

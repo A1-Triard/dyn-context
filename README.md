@@ -1,3 +1,5 @@
+![maintenance: experimental](https://img.shields.io/badge/maintenance-experimental-blue.svg)
+
 # dyn-context
 
 This crate provides simple mechanism for lifetimes and generics safely erasing.

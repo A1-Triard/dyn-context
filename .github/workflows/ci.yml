@@ -40,12 +40,14 @@ jobs:
     - run: "cargo test --verbose --workspace --doc --no-default-features ${{ matrix.features }}"
       if: "${{ matrix.features == '--features=nightly' }}"
     - run: "cargo doc --verbose --workspace --no-default-features ${{ matrix.features }}"
-    - run: "cargo test --verbose --workspace --doc"
+    - name: "cargo test --docsrs"
+      run: "cargo test --verbose --workspace --doc"
       env:
         RUSTFLAGS: "--cfg docsrs"
         RUSTDOCFLAGS: "--cfg docsrs"
       if: "${{ matrix.features == '--features=nightly' }}"
-    - run: "cargo doc --verbose --workspace"
+    - name: "cargo docsrs"
+      run: "cargo doc --verbose --workspace"
       env:
         RUSTFLAGS: "--cfg docsrs"
         RUSTDOCFLAGS: "--cfg docsrs"

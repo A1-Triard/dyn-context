@@ -61,11 +61,11 @@ jobs:
         features: ["", "--features=nightly"]
     runs-on: ${{ matrix.os }}
     steps:
-    - run: 'echo "triple=x86_64-unknown-linux-gnu" >> $GITHUB_ENV"'
+    - run: 'echo "triple=x86_64-unknown-linux-gnu" >> $GITHUB_ENV'
       if: "${{ matrix.os == 'ubuntu-latest' }}"
-    - run: 'echo "triple=x86_64-pc-windows-msvc" >> $GITHUB_ENV"'
+    - run: 'echo "triple=x86_64-pc-windows-msvc" >> $GITHUB_ENV'
       if: "${{ matrix.os == 'windows-latest' }}"
-    - run: 'echo "triple=x86_64-apple-darwin" >> $GITHUB_ENV"'
+    - run: 'echo "triple=x86_64-apple-darwin" >> $GITHUB_ENV'
       if: "${{ matrix.os == 'macOS-latest' }}"
     - uses: actions-rs/toolchain@v1
       with:

@@ -1,44 +1,30 @@
 [package]
 edition = "2021"
 name = "dyn-context"
-version = "0.17.4"
+version = "0.18.0"
 rust-version = "1.60"
 authors = ["warlock <internalmike@gmail.com>"]
-description = "Non-owning service provider pattern implementation."
+description = "Simple mechanism for lifetimes erasing."
 readme = "README.md"
 documentation = "https://docs.rs/dyn-context/"
-keywords = ["service", "context", "reference", "temp", "type"]
+keywords = ["lifetime", "lifetimes", "reference", "temp", "type"]
 categories = ["rust-patterns", "no-std"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/A1-Triard/dyn-context"
 
 [workspace]
-members = [
-    "macro",
-]
 exclude = [
     "ensure_no_std",
 ]
-
-[features]
-default = ["nightly"]
-nightly = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-educe = "0.4.18"
 generics = "0.4.0"
-dyn-context-macro = { path = "macro", version = "0.0.5" }
 indoc = "1.0.6"
-panicking = { version= "0.1.0", default-features = false }
 paste = "1.0.0"
-phantom-type = { version = "0.4.1", default-features = false }
-
-[dev-dependencies]
-macro-attr-2018 = "2.0.1"
 
 [badges]
 maintenance = { status = "experimental" }

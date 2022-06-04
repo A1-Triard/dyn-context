@@ -1,10 +1,3 @@
-//! **Crate features**
-//!
-//! * `"nightly"`
-//! Enabled by default. Disable to make the library compatible with stable and beta Rust channels.
-
-#![cfg_attr(feature="nightly", feature(never_type))]
-
 #![deny(warnings)]
 #![doc(test(attr(deny(warnings))))]
 #![doc(test(attr(allow(dead_code))))]
@@ -12,22 +5,13 @@
 
 #![no_std]
 
-include!("doc_test_readme.include");
+#[doc=include_str!("../README.md")]
+type _DocTestReadme = ();
 
-#[doc(hidden)]
-pub use core::any::Any as std_any_Any;
-#[doc(hidden)]
-pub use core::any::TypeId as std_any_TypeId;
-#[doc(hidden)]
-pub use core::compile_error as std_compile_error;
 #[doc(hidden)]
 pub use core::concat as std_concat;
 #[doc(hidden)]
-pub use core::ops::Drop as std_ops_Drop;
-#[doc(hidden)]
 pub use core::ops::FnOnce as std_ops_FnOnce;
-#[doc(hidden)]
-pub use core::option::Option as std_option_Option;
 #[doc(hidden)]
 pub use core::stringify as std_stringify;
 #[doc(hidden)]
@@ -39,100 +23,335 @@ pub use indoc::indoc as indoc_indoc;
 #[doc(hidden)]
 pub use paste::paste as paste_paste;
 
-mod state;
-pub use state::*;
-
-mod free_lifetimes;
-pub use free_lifetimes::*;
-
-/// Derives [`State`] implementation for structs.
+/// Creates structure, allowing to pack several references into
+/// a one reference to a `'static` type.
 ///
-/// This derive macro allows easily combine
-/// new `State` from several parts and inner `States`.
+/// Accepts input in the following form:
 ///
-/// Supports `#[state]` attribute, which can be in any
-/// of two forms: `#[state]`, and `#[state(part)]`.
-/// First form, `#[state]`, should be used to include
-/// fields which type have implemented [`State`] trait as
-/// an inner entry of building state. Second form, `#[state(part)]`,
-/// marks field as well as struct itself as a building state part,
-/// i.e. an object accessible by its type through [`State`] / [`StateExt`] methods.
+/// ```ignore
+/// $(#[$attr:meta])*
+/// $vis:vis struct $name:ident $(<$generics> $(where $where_clause)?)? {
+///     $($(
+///         $field:ident : $($lt:lifetime ref | $lt:lifetime mut | const) $ty:ty
+///     ),+ $(,)?)?
+/// }
+/// ```
 ///
-/// # Example
+/// In Rust, lifetimes are intrusive, and sometimes it can lead to
+/// an inadequately complex code. Moreover, in some cases it can lead to an _impossible code_,
+/// means code so complex, so it can not make to compiles, even it is logically meaningful.
+/// (Such situations could occur because Rust does not support existential types
+/// with infinite parameters list.)
+///
+/// The `free_lifetimes!` macro allows to "compress" several lifetimes into a one.
+///
+/// For example, you can pack together two `str` references and use them with
+/// a code, requiring a `'static` type:
 ///
 /// ```rust
-/// # use dyn_context::{SelfState, State, StateExt};
+/// # use dyn_context::{free_lifetimes};
 /// #
-/// struct StatePart(i32);
-///
-/// struct InnerState1(i32);
-///
-/// impl SelfState for InnerState1 { }
-///
-/// struct InnerInnerState(i32);
-///
-/// impl SelfState for InnerInnerState { }
-///
-/// #[derive(State)]
-/// #[state(part)]
-/// struct InnerState2 {
-///     var: i32,
-///     #[state(part)]
-///     part: StatePart,
-///     #[state]
-///     inner_inner: InnerInnerState,
+/// free_lifetimes! {
+///     struct DoubleStr {
+///         str_1: 'str_1 ref str,
+///         str_2: 'str_2 ref str
+///     }
 /// }
 ///
-/// #[derive(State)]
-/// struct RootState {
-///     #[state]
-///     inner_1: InnerState1,
-///     #[state]
-///     inner_2: InnerState2,
+/// fn call_back<T: 'static, R>(t: &T, callback: impl FnOnce(&T) -> R) -> R {
+///     callback(t)
 /// }
 ///
 /// # fn main() {
-/// let part = StatePart(1);
-/// let inner_1 = InnerState1(2);
-/// let inner_inner = InnerInnerState(3);
-/// let inner_2 = InnerState2 { var: 4, part, inner_inner };
-/// let state = RootState { inner_1, inner_2 };
-///
-/// assert_eq!(state.get::<StatePart>().0, 1);
-/// assert_eq!(state.get::<InnerState1>().0, 2);
-/// assert_eq!(state.get::<InnerInnerState>().0, 3);
-/// assert_eq!(state.get::<InnerState2>().var, 4);
+/// let s_1 = String::from("str1");
+/// let s_2 = String::from("str2");
+/// let r = DoubleStrBuilder {
+///     str_1: &s_1[1..],
+///     str_2: &s_2[2..]
+/// }.build_and_then(|double_str| call_back(double_str, |double_str| {
+///     format!("{}{}", double_str.str_1(), double_str.str_2())
+/// }));
+/// assert_eq!(r, "tr1r2");
 /// # }
 /// ```
-pub use dyn_context_macro::State;
+#[macro_export]
+macro_rules! free_lifetimes {
+    (
+        $(#[$attr:meta])*
+        $vis:vis struct $name:ident $($token:tt)*
+    ) => {
+        $crate::generics_parse! {
+            $crate::free_lifetimes_impl {
+                @struct [$([$attr])*] [$vis] [$name]
+            }
+            $($token)*
+        }
+    };
+}
 
-/// Derives [`Stop`] implementation for structs.
-///
-/// Supports `#[stop]` attribute, which can be in any
-/// of following forms:
-/// 
-/// - `#[stop(explicit)]`
-/// - `#[stop(implicit)]`
-/// - `#[stop]`
-/// - `#[stop(ignore)`
-///
-/// This macro can have two modes: implicit and explicit.
-/// In the explicit mode all struct fields not marked with
-/// `#[stop]` attribute are ignored. In the implicit mode
-/// the behavior is the opposite: the implementation uses
-/// all fields not marked with `#[stop(ignore)]`.
-///
-/// The mode can be selected by adding to the struct
-/// `#[stop(explicit)]`, or
-/// `#[stop(implicit)]` attribute respectively. By default,
-/// mode is implicit for tuple structures (`struct Struct(...)`),
-/// and explicit for ordinary structures (`struct Struct { ... }`).
-pub use dyn_context_macro::Stop;
+#[doc(hidden)]
+#[macro_export]
+macro_rules! free_lifetimes_impl {
+    (
+        @struct [$([$attr:meta])*] [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        {
+            $($(
+                $field:ident : $($field_lt:lifetime)? $field_mod:ident $field_ty:ty
+            ),+ $(,)?)?
+        }
+    ) => {
+        $crate::free_lifetimes_impl! {
+            @impl struct
+            [$name] [$([$attr])*] [$vis] [ty] [this] [builder]
+            [$($g)*] [$($r)*] [$($w)*]
+            [] [] [] [] []
+            [$($([$field : $($field_lt)? $field_mod $field_ty])+)?]
+        }
+    };
+    (
+        @struct [$([$attr:meta])*] [$vis:vis] [$name:ident] [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        $($body:tt)*
+    ) => {
+        $crate::std_compile_error!($crate::indoc_indoc!("
+            invalid free lifetimes struct definition, allowed form is
+
+            $(#[$attr:meta])*
+            $vis:vis struct $name:ident $(<$generics> $(where $where_clause)?)? {
+                $($(
+                    $field:ident : $($lt:lifetime ref | $lt:lifetime mut | const) $ty:ty
+                ),+ $(,)?)?
+            }
+
+        "));
+    };
+    (
+        @impl struct
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($builder_lts:tt)*]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [[$field:ident : $field_lt:lifetime ref $field_ty:ty] $($other_fields:tt)*]
+    ) => {
+        $crate::free_lifetimes_impl! {
+            @impl struct [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
+            [
+                $($builder_lts)*
+                [$field_lt]
+            ]
+            [
+                $($builder_fields)*
+                pub $field : & $field_lt $field_ty,
+            ]
+            [
+                $($struct_fields)*
+                $field : &'static $field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field : unsafe { &*($builder . $field as *const $field_ty) },
+            ]
+            [
+                $($struct_methods)*
+                $vis fn $field (&self) -> &$field_ty { self.$field }
+            ]
+            [$($other_fields)*]
+        }
+    };
+    (
+        @impl struct
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($builder_lts:tt)*]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [[$field:ident : $field_lt:lifetime mut $field_ty:ty] $($other_fields:tt)*]
+    ) => {
+        $crate::free_lifetimes_impl! {
+            @impl struct [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
+            [
+                $($builder_lts)*
+                [$field_lt]
+            ]
+            [
+                $($builder_fields)*
+                pub $field : & $field_lt mut $field_ty,
+            ]
+            [
+                $($struct_fields)*
+                $field : &'static mut $field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field : unsafe { &mut *($builder . $field as *mut $field_ty) },
+            ]
+            [
+                $($struct_methods)*
+
+                #[allow(dead_code)]
+                $vis fn $field (&self) -> &$field_ty { self.$field }
+
+                #[allow(dead_code)]
+                $vis fn [< $field _mut >] (&mut self) -> &mut $field_ty { self.$field }
+            ]
+            [$($other_fields)*]
+        }
+    };
+    (
+        @impl struct
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($builder_lts:tt)*]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [[$field:ident : const $field_ty:ty] $($other_fields:tt)*]
+    ) => {
+        $crate::free_lifetimes_impl! {
+            @impl struct [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
+            [$($builder_lts)*]
+            [
+                $($builder_fields)*
+                pub $field : $field_ty,
+            ]
+            [
+                $($struct_fields)*
+                $field : $field_ty,
+            ]
+            [
+                $($ctor_assignments)*
+                $field: $builder . $field,
+            ]
+            [
+                $($struct_methods)*
+                $vis fn $field (&self) -> $field_ty { self.$field }
+            ]
+            [$($other_fields)*]
+        }
+    };
+    (
+        @impl struct
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($builder_lts:tt)*]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [[$field:ident : $($field_lt:lifetime)? $field_mod:ident $field_ty:ty] $($other_fields:tt)*]
+    ) => {
+        $crate::std_compile_error!($crate::std_concat!(
+            "invalid free lifetimes struct field '",
+            $crate::std_stringify!($field : $($field_lt)? $field_mod $field_ty),
+            "\
+                ', allowed form is '\
+                $field:ident : $($lt:lifetime ref | $lt:lifetime mut | const) $ty:ty\
+                '\
+            ",
+        ));
+    };
+    (
+        @impl struct
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($([$builder_lts:tt])+)?]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        []
+    ) => {    
+        $crate::generics_concat! {
+            $crate::free_lifetimes_impl {
+                @impl [$name] [$([$attr])*] [$vis] [$ty] [$this] [$builder] [$($g)*] [$($r)*] [$($w)*]
+                [$($builder_fields)*]
+                [$($struct_fields)*]
+                [$($ctor_assignments)*]
+                [$($struct_methods)*]
+            }
+            [$( < $($builder_lts),+ > )?] [$( < $($builder_lts),+ > )?] [],
+            [$($g)*] [$($r)*] [$($w)*]
+        }
+    };
+    (
+        @impl
+        [$name:ident] [$([$attr:meta])*] [$vis:vis] [$ty:ident] [$this:ident] [$builder:ident]
+        [$($g:tt)*] [$($r:tt)*] [$($w:tt)*]
+        [$($builder_fields:tt)*]
+        [$($struct_fields:tt)*]
+        [$($ctor_assignments:tt)*]
+        [$($struct_methods:tt)*]
+        [$($builder_g:tt)*] [$($builder_r:tt)*] [$($builder_w:tt)*]
+    ) => {
+        $crate::paste_paste! {
+            $vis struct [< $name Builder >] $($builder_g)* $($w)* {
+                $($builder_fields)*
+            }
+
+            impl $($builder_g)* [< $name Builder >] $($builder_r)* $($builder_w)* {
+                /// Converts regular structure into a special structure with "erased" field lifetimes
+                /// and passes result to provided function.
+                $vis fn build_and_then<FreeLifetimesStructBuildReturnType>(
+                    &mut self,
+                    f: impl $crate::std_ops_FnOnce(&mut $name $($r)*) -> FreeLifetimesStructBuildReturnType
+                ) -> FreeLifetimesStructBuildReturnType {
+                    let $builder = self;
+                    let mut free_lifetimes = $name {
+                        $($ctor_assignments)*
+                    };
+                    f(&mut free_lifetimes)
+                }
+            }
+                        
+            $(#[$attr])*
+            $vis struct $name $($g)* $($w)* {
+                $($struct_fields)*
+            }
+
+            impl $($g)* $name $($r)* $($w)* {
+                $($struct_methods)*
+            }
+        }
+    };
+}
+
+#[cfg(docsrs)]
+pub mod example {
+    //! [`free_lifetimes`](free_lifetimes) macro expansion example.
+    //!
+    //! ```ignore
+    //! free_lifetimes! {
+    //!     pub struct FreeLifetimesStruct {
+    //!         data: 'data mut Data,
+    //!         str_data: 'str_data ref str,
+    //!         id: const usize,
+    //!     }
+    //! }
+    //!
+    //! ```
+
+    pub struct Data {
+        pub x: i16,
+        pub y: i16
+    }
+
+    free_lifetimes! {
+        pub struct FreeLifetimesStruct {
+            data: 'data mut Data,
+            str_data: 'str_data ref str,
+            id: const usize,
+        }
+    }
+}
 
 #[cfg(test)]
 mod test {
-    use crate::{SelfState, State, StateExt, StateRefMut};
-    use crate::{Stop, free_lifetimes, impl_stop_and_drop};
+    use crate::free_lifetimes;
     use core::mem::replace;
     use core::ops::Deref;
 
@@ -144,8 +363,6 @@ mod test {
         }
     }
     
-    impl SelfState for State1 { }
-
     #[test]
     fn test_state_1() {
         let mut x = 3;
@@ -183,27 +400,6 @@ mod test {
     #[derive(Debug, Clone, Copy)]
     struct PrivStr;
 
-    impl SelfState for PrivStr { }
-
-    #[test]
-    fn test_state_4() {
-        let mut x = 3;
-        let res = State1Builder {
-            a: 1,
-            b: &2,
-            c: &mut x
-        }.build_and_then(|state| {
-            state.merge_mut_and_then(|state| {
-                assert_eq!(state.get::<State1>().a(), 1u8);
-                assert_eq!(state.get::<State1>().b(), &2u16);
-                assert_eq!(replace(state.get_mut::<State1>().c_mut(), 12), 3u32);
-                "res"
-            }, &mut PrivStr)
-        });
-        assert_eq!(res, "res");
-        assert_eq!(x, 12);
-    }
-
     free_lifetimes! {
         #[derive(Debug)]
         pub struct Items<ItemType: 'static> {
@@ -228,50 +424,5 @@ mod test {
             items.iter().sum()
         });
         assert_eq!(sum, 6);
-    }
-
-    struct TestStop {
-        stopped: bool
-    }
-
-    impl SelfState for TestStop { }
-
-    impl_stop_and_drop!(for TestStop {
-        fn is_stopped(&self) -> bool { self.stopped }
-
-        fn stop(state: &mut dyn State) {
-            state.get_mut::<TestStop>().stopped = true;
-        }
-    });
-
-    #[derive(Stop)]
-    #[_crate]
-    struct N(TestStop);
-
-    #[derive(Stop)]
-    #[_crate]
-    #[stop(explicit)]
-    struct X {
-        #[stop]
-        s: TestStop,
-        #[allow(dead_code)]
-        i: i32
-    }
-
-    struct A;
-    impl SelfState for A { }
-    struct B;
-    impl SelfState for B { }
-
-    #[derive(State)]
-    #[_crate]
-    #[state(part)]
-    struct TestDerive {
-        #[state]
-        a: A,
-        #[state]
-        b: B,
-        #[state(part)]
-        c: i32,
     }
 }

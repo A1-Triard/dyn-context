@@ -7,7 +7,7 @@
 
 use core::alloc::Layout;
 use core::panic::PanicInfo;
-use dyn_context::{SelfState, free_lifetimes};
+use dyn_context::free_lifetimes;
 use core::mem::replace;
 use core::ops::Deref;
 #[cfg(not(windows))]
@@ -41,7 +41,6 @@ pub fn rust_oom(_layout: Layout) -> ! {
     unsafe { exit(98) }
 }
 
-
 free_lifetimes! {
     struct State1 {
         a: const u8,
@@ -49,8 +48,6 @@ free_lifetimes! {
         c: 'c mut u32,
     }
 }
-
-impl SelfState for State1 { }
 
 fn test_state_1() {
     let mut x = 3;

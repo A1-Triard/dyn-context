@@ -1,4 +1,4 @@
-![maintenance: experimental](https://img.shields.io/badge/maintenance-experimental-blue.svg)
+![maintenance: deprecated](https://img.shields.io/badge/maintenance-deprecated-red.svg)
 
 # dyn-context-macro
 

@@ -50,7 +50,6 @@ fn main() {
     });
     PrintStateBuilder {
         value: "Hello, world!"
-
     }.build_and_then(|state| 
         call_back.call_back(state)
     );

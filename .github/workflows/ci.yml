@@ -41,7 +41,7 @@ jobs:
         RUSTFLAGS: "--cfg docsrs"
         RUSTDOCFLAGS: "--cfg docsrs"
     - run: "cargo build --verbose --workspace --release"
-    - run: "cargo outdated --verbose --workspace --aggresssive --root-deps-only --exit-code 1"
+    - run: "cargo outdated --verbose --workspace --root-deps-only --exit-code 1"
     - run: "cargo clippy --verbose --workspace"
   ensure_no_std:
     strategy:

@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "dyn-context"
-version = "0.18.0"
+version = "0.18.1"
 rust-version = "1.60"
 authors = ["warlock <internalmike@gmail.com>"]
 description = "Simple mechanism for lifetimes erasing."

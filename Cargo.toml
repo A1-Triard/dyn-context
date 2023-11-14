@@ -22,8 +22,8 @@ rustc-args = ["--cfg", "docsrs"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
-generics = "0.4.0"
-indoc = "1.0.6"
+generics = "0.5.1"
+indoc = "2.0.4"
 paste = "1.0.0"
 
 [badges]

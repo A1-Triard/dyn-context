@@ -397,6 +397,7 @@ mod test {
         assert_eq!(x, 3);
     }
 
+    #[allow(dead_code)]
     #[derive(Debug, Clone, Copy)]
     struct PrivStr;
 

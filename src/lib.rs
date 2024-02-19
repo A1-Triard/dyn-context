@@ -351,7 +351,6 @@ pub mod example {
 
 #[cfg(test)]
 mod test {
-    use crate::free_lifetimes;
     use core::mem::replace;
     use core::ops::Deref;
 

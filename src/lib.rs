@@ -2,6 +2,7 @@
 #![doc(test(attr(deny(warnings))))]
 #![doc(test(attr(allow(dead_code))))]
 #![doc(test(attr(allow(unused_variables))))]
+#![allow(clippy::mixed_attributes_style)]
 
 #![no_std]
 

@@ -3,6 +3,7 @@
 #![doc(test(attr(allow(dead_code))))]
 #![doc(test(attr(allow(unused_variables))))]
 #![allow(clippy::mixed_attributes_style)]
+#![allow(unknown_lints)]
 
 #![no_std]
 

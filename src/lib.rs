@@ -4,6 +4,7 @@
 #![doc(test(attr(allow(unused_variables))))]
 #![allow(unknown_lints)]
 #![allow(clippy::mixed_attributes_style)]
+#![allow(clippy::needless_doctest_main)]
 
 #![no_std]
 
